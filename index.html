@@ -3,405 +3,564 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>TokenPay v2 — Workforce Token System</title>
+<title>TokenPay v3</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<!-- jsQR for camera scanning -->
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 
-<!-- ═══════════════════════════════════════════════════════════════════
-     FIREBASE SDK — Uncomment after you set up Firebase
-     ════════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════
+     FIREBASE — uncomment after setup
+     ══════════════════════════════════════════════════════════ -->
+<!--
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script>
   firebase.initializeApp({
-  apiKey: "AIzaSyCoYQ9FbjtohOuFqOX8wANOrft3HOCETsM",
-  authDomain: "token-based-system.firebaseapp.com",
-  projectId: "token-based-system",
-  storageBucket: "token-based-system.firebasestorage.app",
-  messagingSenderId: "620089301470",
-  appId: "1:620089301470:web:ec5e79f16cdccc5a03254f",
-  measurementId: "G-ZJ27VDDZ7P"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
   });
   const firestore = firebase.firestore();
 </script>
+-->
 
 <style>
 :root {
-  --bg:#0a0a0f; --surface:#13131a; --surface2:#1c1c27;
-  --border:#2a2a3a; --accent:#f0c040; --accent2:#4af0a0;
-  --danger:#f05060; --text:#e8e8f0; --muted:#7070a0;
+  --bg:#07070d; --s1:#10101a; --s2:#171724; --s3:#1e1e2e;
+  --border:#28283c; --border2:#34344a;
+  --accent:#f5c842; --accent2:#3de8a0; --accent3:#7c6fff;
+  --danger:#f04f5e; --warn:#f0933a;
+  --text:#eeeef8; --muted:#6868a0; --muted2:#9090c0;
   --mono:'Space Mono',monospace; --sans:'DM Sans',sans-serif;
+  --r:8px; --r2:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
-::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
 
-/* LAYOUT */
+/* ── LAYOUT ── */
 .app{display:flex;flex-direction:column;min-height:100vh}
-.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-.brand{font-family:var(--mono);font-size:14px;color:var(--accent);letter-spacing:2px}
-.topbar-right{display:flex;align-items:center;gap:10px}
-.role-badge{font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);letter-spacing:1px}
-.role-badge.admin{border-color:var(--accent);color:var(--accent)}
-.role-badge.supervisor{border-color:var(--accent2);color:var(--accent2)}
-.btn-logout{font-family:var(--mono);font-size:10px;padding:4px 12px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer}
-.btn-logout:hover{border-color:var(--danger);color:var(--danger)}
-.main{flex:1;padding:24px;max-width:1100px;margin:0 auto;width:100%}
+.topbar{background:var(--s1);border-bottom:1px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.brand{font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:3px;display:flex;align-items:center;gap:8px}
+.brand-dot{width:8px;height:8px;background:var(--accent2);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+.topbar-r{display:flex;align-items:center;gap:10px}
+.rbadge{font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:20px;border:1px solid;letter-spacing:1px}
+.rbadge.admin{border-color:var(--accent);color:var(--accent)}
+.rbadge.supervisor{border-color:var(--accent2);color:var(--accent2)}
+.btn-out{font-family:var(--mono);font-size:9px;padding:4px 10px;border-radius:4px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s}
+.btn-out:hover{border-color:var(--danger);color:var(--danger)}
+.main{flex:1;padding:22px 20px;max-width:1140px;margin:0 auto;width:100%}
 
-/* LOGIN */
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}
-.login-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:40px;width:100%;max-width:370px}
-.login-title{font-family:var(--mono);font-size:20px;color:var(--accent);letter-spacing:2px;margin-bottom:4px}
-.login-sub{font-size:12px;color:var(--muted);margin-bottom:28px}
+/* ── LOGIN ── */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 0%,#1a1a30 0%,var(--bg) 70%)}
+.login-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:360px}
+.login-logo{font-family:var(--mono);font-size:24px;color:var(--accent);letter-spacing:3px;margin-bottom:4px}
+.login-sub{font-size:12px;color:var(--muted);margin-bottom:32px}
+
+/* ── FORM ── */
 .fg{margin-bottom:14px}
-.fg label{display:block;font-size:10px;font-family:var(--mono);color:var(--muted);letter-spacing:1px;margin-bottom:5px;text-transform:uppercase}
-.fg input,.fg select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border .2s}
-.fg input:focus,.fg select:focus{border-color:var(--accent)}
-.fg select option{background:var(--surface2)}
-.btn-primary{width:100%;background:var(--accent);color:#0a0a0f;font-family:var(--mono);font-size:12px;font-weight:700;padding:11px;border:none;border-radius:6px;cursor:pointer;letter-spacing:1px;margin-top:6px}
-.btn-primary:hover{opacity:.85}
-.btn-primary:disabled{opacity:.4;cursor:not-allowed}
-.err{font-size:12px;color:var(--danger);margin-top:10px;text-align:center}
+.fg label{display:block;font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border .15s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--accent)}
+.fg input::placeholder{color:var(--muted)}
+.fg select option{background:var(--s2)}
+.fg textarea{resize:vertical;min-height:70px}
+.fg-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fg-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 
-/* TABS */
-.tabs{display:flex;gap:2px;margin-bottom:24px;border-bottom:1px solid var(--border)}
-.tab{font-family:var(--mono);font-size:11px;letter-spacing:1px;padding:9px 16px;background:transparent;border:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;text-transform:uppercase}
+/* ── BUTTONS ── */
+.btn{font-family:var(--mono);font-size:11px;letter-spacing:.5px;padding:9px 16px;border-radius:var(--r);border:none;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:#07070d;font-weight:700}
+.btn-primary:hover{opacity:.85}
+.btn-primary:disabled{opacity:.35;cursor:not-allowed}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--text)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-success{background:transparent;border:1px solid var(--accent2);color:var(--accent2)}
+.btn-success:hover{background:var(--accent2);color:#07070d}
+.btn-danger{background:transparent;border:1px solid var(--border2);color:var(--muted)}
+.btn-danger:hover{border-color:var(--danger);color:var(--danger)}
+.btn-sm{font-size:10px;padding:6px 12px}
+.btn-full{width:100%;justify-content:center}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:2px;margin-bottom:22px;border-bottom:1px solid var(--border);overflow-x:auto}
+.tab{font-family:var(--mono);font-size:10px;letter-spacing:1px;padding:9px 14px;background:transparent;border:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;white-space:nowrap;text-transform:uppercase}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 .tab:hover:not(.active){color:var(--text)}
 
-/* CARDS */
+/* ── CARDS ── */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r2);padding:18px 20px}
+.card+.card{margin-top:14px}
+.ct{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:14px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px}
-.ct{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:14px}
-.stat-n{font-family:var(--mono);font-size:30px;color:var(--accent)}
-.stat-l{font-size:11px;color:var(--muted);margin-top:3px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.mb14{margin-bottom:14px}
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.st{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase}
+.stat-n{font-family:var(--mono);font-size:28px;color:var(--accent);line-height:1}
+.stat-l{font-size:11px;color:var(--muted);margin-top:4px}
 
-/* TABLE */
+/* ── TABLE ── */
 .tw{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:12px}
-thead th{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:9px 12px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+thead th{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
 tbody td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text)}
-tbody tr:hover td{background:var(--surface2)}
+tbody tr:hover td{background:var(--s2)}
 tbody tr:last-child td{border-bottom:none}
 .mc{font-family:var(--mono);font-size:11px}
-.badge{display:inline-block;font-family:var(--mono);font-size:9px;letter-spacing:.5px;padding:2px 7px;border-radius:12px;border:1px solid}
-.bg{border-color:var(--accent2);color:var(--accent2)}
-.by{border-color:var(--accent);color:var(--accent)}
-.br{border-color:var(--danger);color:var(--danger)}
-.bx{border-color:var(--border);color:var(--muted)}
+.badge{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9px;letter-spacing:.5px;padding:2px 8px;border-radius:20px;border:1px solid}
+.b-green{border-color:var(--accent2);color:var(--accent2)}
+.b-yellow{border-color:var(--accent);color:var(--accent)}
+.b-red{border-color:var(--danger);color:var(--danger)}
+.b-gray{border-color:var(--border2);color:var(--muted2)}
+.b-purple{border-color:var(--accent3);color:var(--accent3)}
 
-/* SEARCH */
+/* ── SEARCH ── */
 .sbar{display:flex;gap:8px;margin-bottom:14px}
-.sbar input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none}
+.sbar input{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none}
 .sbar input:focus{border-color:var(--accent)}
-.bsm{font-family:var(--mono);font-size:10px;padding:7px 12px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;transition:all .2s;white-space:nowrap}
-.bsm:hover{border-color:var(--accent);color:var(--accent)}
-.bsm.ok{border-color:var(--accent2);color:var(--accent2)}
-.bsm.ok:hover{background:var(--accent2);color:#0a0a0f}
-.bsm.danger:hover{border-color:var(--danger);color:var(--danger)}
 
-/* QR MODAL */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
-.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:400px}
-.modal-title{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:2px;margin-bottom:16px}
-.qr-wrap{display:flex;justify-content:center;margin:8px 0 16px}
-.td{font-family:var(--mono);font-size:12px;background:var(--surface2);border-radius:6px;padding:9px 12px;margin-bottom:6px}
-.td span{color:var(--muted);font-size:10px;display:block;margin-bottom:2px}
-
-/* CAMERA SCANNER */
-.cam-wrap{position:relative;width:100%;border-radius:8px;overflow:hidden;background:#000;margin-bottom:14px}
-.cam-wrap video{width:100%;display:block;max-height:260px;object-fit:cover}
-.cam-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
-.cam-frame{width:160px;height:160px;border:3px solid var(--accent2);border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.45)}
-.cam-scan-line{position:absolute;width:140px;height:2px;background:var(--accent2);animation:scanline 2s linear infinite;opacity:.8}
-@keyframes scanline{0%{top:calc(50% - 80px)}100%{top:calc(50% + 80px)}}
-.cam-status{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.7);padding:8px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--accent2)}
-
-/* EMP CARD */
-.ecard{display:flex;align-items:center;gap:12px;background:var(--surface2);border-radius:7px;padding:11px 14px;margin-bottom:4px;cursor:pointer;border:1px solid transparent;transition:border-color .2s}
-.ecard:hover{border-color:var(--border)}
-.ecard.sel{border-color:var(--accent2)}
-.avt{width:36px;height:36px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;color:#0a0a0f;font-size:13px;flex-shrink:0}
-.avt.sup{background:var(--accent2)}
-.ei{flex:1}
-.en{font-size:13px;font-weight:500}
-.er{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px}
-.etok{font-family:var(--mono);font-size:16px;color:var(--accent)}
+/* ── EMP CARD ── */
+.erow{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--r);border:1px solid transparent;cursor:pointer;transition:all .15s;margin-bottom:3px}
+.erow:hover{background:var(--s2);border-color:var(--border)}
+.erow.sel{background:var(--s2);border-color:var(--accent2)}
+.avt{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:12px;color:#07070d;flex-shrink:0}
+.avt-y{background:var(--accent)}
+.avt-g{background:var(--accent2)}
+.avt-p{background:var(--accent3)}
+.ei{flex:1;min-width:0}
+.en{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.er{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:1px}
+.etok{font-family:var(--mono);font-size:15px;color:var(--accent);text-align:right}
 .etl{font-size:9px;color:var(--muted);text-align:right}
 
-/* SECTION */
-.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.st{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase}
+/* ── SCANNER ── */
+.scanbox{border:2px dashed var(--border2);border-radius:var(--r2);padding:28px 20px;text-align:center;transition:all .2s}
+.scanbox.live{border-color:var(--accent2);background:rgba(61,232,160,.03)}
+.scanbox.err{border-color:var(--danger);background:rgba(240,79,94,.03)}
+.scan-icon{font-size:36px;margin-bottom:10px}
+.scan-input{width:100%;max-width:260px;background:var(--s2);border:1px solid var(--accent);border-radius:var(--r);padding:10px 14px;color:var(--text);font-family:var(--mono);font-size:14px;outline:none;text-align:center;letter-spacing:2px;margin-bottom:12px}
+.scan-hint{font-size:12px;color:var(--muted);margin-bottom:14px}
 
-/* SCAN BOX */
-.scanbox{border:2px dashed var(--border);border-radius:10px;padding:24px 20px;text-align:center;margin-bottom:16px;transition:border-color .2s}
-.scanbox.live{border-color:var(--accent2)}
-.sicon{font-size:32px;margin-bottom:8px}
-.scanbox p{font-size:12px;color:var(--muted);margin-bottom:12px}
-.scan-input{width:100%;max-width:240px;background:var(--surface2);border:1px solid var(--accent);border-radius:6px;padding:9px 12px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none;text-align:center;letter-spacing:2px}
+/* ── CAMERA ── */
+.cam-wrap{position:relative;border-radius:var(--r2);overflow:hidden;background:#000;margin-bottom:12px}
+.cam-wrap video{width:100%;display:block;max-height:240px;object-fit:cover}
+.cam-frame{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:150px;height:150px;border:3px solid var(--accent2);border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.5)}
+.cam-line{position:absolute;left:50%;transform:translateX(-50%);width:130px;height:2px;background:var(--accent2);opacity:.9;animation:scan 1.8s linear infinite}
+@keyframes scan{0%{top:calc(50% - 75px)}100%{top:calc(50% + 75px)}}
+.cam-foot{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.7);padding:7px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--accent2)}
 
-/* TOASTS */
-.toast-wrap{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:7px;z-index:300}
-.toast{font-size:12px;padding:10px 16px;border-radius:7px;border:1px solid;animation:slideIn .2s ease;max-width:280px;font-family:var(--sans)}
-.toast.success{background:#0a1f14;border-color:var(--accent2);color:var(--accent2)}
-.toast.error{background:#1f0a0e;border-color:var(--danger);color:var(--danger)}
-.toast.info{background:#1a1810;border-color:var(--accent);color:var(--accent)}
-@keyframes slideIn{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}
+/* ── VERIFY STATES ── */
+.verify-badge{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;border-radius:var(--r);margin-bottom:14px;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:1px}
+.vb-success{background:rgba(61,232,160,.1);border:1px solid var(--accent2);color:var(--accent2)}
+.vb-error{background:rgba(240,79,94,.1);border:1px solid var(--danger);color:var(--danger)}
+.vb-info{background:rgba(245,200,66,.1);border:1px solid var(--accent);color:var(--accent)}
 
-/* DEMO BANNER */
-.demo-banner{background:#1a1810;border:1px solid var(--accent);border-radius:7px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:var(--accent)}
-.demo-banner code{font-family:var(--mono);font-size:10px;background:var(--bg);padding:1px 5px;border-radius:3px}
+/* ── MODAL ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
+.modal{background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:24px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto}
+.modal-title{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:20px}
+.modal-footer{display:flex;gap:8px;margin-top:20px}
+.qr-center{display:flex;justify-content:center;margin:12px 0}
 
-/* SCAN SUCCESS FLASH */
-.flash-success{animation:flashGreen .5s ease}
-@keyframes flashGreen{0%,100%{border-color:var(--border)}50%{border-color:var(--accent2);box-shadow:0 0 20px rgba(74,240,160,.3)}}
+/* ── QR ID CARD ── */
+.id-card{background:linear-gradient(135deg,var(--s2) 0%,var(--s3) 100%);border:1px solid var(--border2);border-radius:12px;padding:20px;width:280px;margin:0 auto}
+.id-card-top{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.id-brand{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:2px}
+.id-role{font-size:10px;color:var(--muted);margin-top:1px}
+.id-name{font-size:16px;font-weight:600;margin-bottom:2px}
+.id-detail{font-family:var(--mono);font-size:10px;color:var(--muted2)}
+.id-qr{display:flex;justify-content:center;margin:14px 0 10px}
+
+/* ── SESSION LOG ── */
+.slog-item{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.slog-item:last-child{border-bottom:none}
+
+/* ── TOASTS ── */
+.toast-wrap{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:6px;z-index:300}
+.toast{font-size:12px;padding:10px 16px;border-radius:var(--r);border:1px solid;animation:tin .2s ease;max-width:300px}
+.toast.success{background:rgba(61,232,160,.1);border-color:var(--accent2);color:var(--accent2)}
+.toast.error{background:rgba(240,79,94,.1);border-color:var(--danger);color:var(--danger)}
+.toast.info{background:rgba(245,200,66,.1);border-color:var(--accent);color:var(--accent)}
+@keyframes tin{from{transform:translateX(30px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* ── DEMO BANNER ── */
+.demo-banner{background:rgba(245,200,66,.07);border:1px solid rgba(245,200,66,.3);border-radius:var(--r);padding:10px 14px;margin-bottom:18px;font-size:11px;color:var(--accent);font-family:var(--mono)}
+
+/* ── SUCCESS ANIM ── */
+@keyframes popIn{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+.pop{animation:popIn .4s cubic-bezier(.175,.885,.32,1.275)}
+
+/* ── DIVIDER ── */
+.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
+.err-msg{font-size:11px;color:var(--danger);margin-top:8px;text-align:center}
 
 @media(max-width:640px){
-  .g2,.g3{grid-template-columns:1fr}
+  .g2,.g3,.g4,.fg-row,.fg-row3{grid-template-columns:1fr}
   .main{padding:14px}
   .topbar{padding:0 14px}
-  .tabs{overflow-x:auto}
-  .tab{white-space:nowrap}
 }
 </style>
 </head>
 <body>
 <div id="root"></div>
-
 <script type="text/babel">
-const { useState, useEffect, useRef, useCallback } = React;
+const {useState,useEffect,useRef,useCallback} = React;
 
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════
 // DEMO DATA
-// ═══════════════════════════════════════════
-let demoData = (() => {
-  const names = ["Arun Kumar","Priya Sharma","Karthik R","Deepa M","Suresh P","Lakshmi N","Rajesh V","Meena S","Vijay K","Anitha R","Murugan T","Sangeetha B","Prakash D","Kavitha L","Senthil A","Nalini J","Balamurugan S","Revathi C","Dinesh M","Pooja G"];
-  const depts = ["Production","Packing","Quality","Warehouse","Maintenance"];
-  const employees = names.map((name,i) => ({
-    id:`EMP${String(i+1).padStart(3,'0')}`,name,rollNo:`ROLL${String(i+1).padStart(4,'0')}`,
-    department:depts[i%5],tokens:[],totalTokens:Math.floor(Math.random()*20),paidTokens:Math.floor(Math.random()*100)
-  }));
-  const tokens = Array.from({length:200},(_,i)=>({
-    id:`TKN${String(i+1).padStart(6,'0')}`,assignedTo:null,assignedRoll:null,assignedAt:null,assignedBy:null,sessionId:null
+// ═══════════════════════════════════════════════════
+let DB = (() => {
+  const employees = [
+    {id:'EMP001',name:'Arun Kumar',rollNo:'ROLL0001',mobile:'9876543210',department:'Production',tokens:[],totalTokens:5,paidTokens:42,createdAt:'2024-01-10'},
+    {id:'EMP002',name:'Priya Sharma',rollNo:'ROLL0002',mobile:'9123456789',department:'Packing',tokens:[],totalTokens:3,paidTokens:38,createdAt:'2024-01-10'},
+    {id:'EMP003',name:'Karthik R',rollNo:'ROLL0003',mobile:'',department:'Quality',tokens:[],totalTokens:7,paidTokens:55,createdAt:'2024-01-11'},
+    {id:'EMP004',name:'Deepa M',rollNo:'ROLL0004',mobile:'9988776655',department:'Warehouse',tokens:[],totalTokens:2,paidTokens:30,createdAt:'2024-01-12'},
+    {id:'EMP005',name:'Suresh P',rollNo:'ROLL0005',mobile:'',department:'Maintenance',tokens:[],totalTokens:9,paidTokens:61,createdAt:'2024-01-12'},
+  ];
+  const tokens = Array.from({length:100},(_,i)=>({
+    id:`TKN${String(i+1).padStart(6,'0')}`,
+    assignedTo:null,assignedRoll:null,assignedAt:null,assignedBy:null,sessionId:null,lockedDate:null
   }));
   const supervisors = [
-    {id:'SUP001',name:'Supervisor Alpha',username:'sup1',password:'pass1',active:true},
-    {id:'SUP002',name:'Supervisor Beta',username:'sup2',password:'pass2',active:true},
+    {id:'SUP001',name:'Supervisor Alpha',username:'sup1',password:'pass1',qrId:'SUPQR001',active:true},
+    {id:'SUP002',name:'Supervisor Beta',username:'sup2',password:'pass2',qrId:'SUPQR002',active:true},
   ];
   return {employees,tokens,supervisors};
 })();
 
+const today = () => new Date().toISOString().split('T')[0];
+
+// ═══════════════════════════════════════════════════
+// DB API (demo — swap with Firestore in production)
+// ═══════════════════════════════════════════════════
 const db = {
-  login: async (u, p) => {
-    const snap = await firestore.collection('supervisors').where('username','==',u).where('password','==',p).get();
-    if(u==='admin'&&p==='admin123') return {role:'admin',name:'Administrator',id:'ADMIN'};
-    if(snap.empty) throw new Error('Invalid credentials');
-    const s = snap.docs[0].data();
-    return {role:'supervisor', name:s.name, id:snap.docs[0].id};
+  login:(u,p)=>{
+    if(u==='admin'&&p==='admin123') return Promise.resolve({role:'admin',name:'Administrator',id:'ADMIN'});
+    const s=DB.supervisors.find(s=>s.username===u&&s.password===p);
+    if(s) return Promise.resolve({role:'supervisor',name:s.name,id:s.id,qrId:s.qrId});
+    return Promise.reject(new Error('Invalid credentials'));
   },
-  getEmployees: () => firestore.collection('employees').get().then(s=>s.docs.map(d=>({id:d.id,...d.data()}))),
-  getEmployee: (id) => firestore.collection('employees').doc(id).get().then(d=>({id:d.id,...d.data()})),
-  addEmployee: (emp) => firestore.collection('employees').doc(emp.id).set(emp),
-  getTokens: () => firestore.collection('tokens').get().then(s=>s.docs.map(d=>({id:d.id,...d.data()}))),
-  getToken: (id) => firestore.collection('tokens').doc(id).get().then(d=>d.exists?{id:d.id,...d.data()}:null),
-  assignToken: async (tokenId, empId, rollNo, supName, sessionId) => {
-    return firestore.runTransaction(async tx => {
-      const tRef = firestore.collection('tokens').doc(tokenId);
-      const eRef = firestore.collection('employees').doc(empId);
-      const tDoc = await tx.get(tRef);
-      if(!tDoc.exists) throw new Error('Token not found');
-      if(tDoc.data().assignedTo) throw new Error('Token already assigned');
-      tx.update(tRef, {assignedTo:empId, assignedRoll:rollNo, assignedAt:new Date().toISOString(), assignedBy:supName, sessionId});
-      tx.update(eRef, {totalTokens: firebase.firestore.FieldValue.increment(1), tokens: firebase.firestore.FieldValue.arrayUnion(tokenId)});
-    });
+  loginByQR:(qrId)=>{
+    const s=DB.supervisors.find(s=>s.qrId===qrId&&s.active);
+    if(s) return Promise.resolve({role:'supervisor',name:s.name,id:s.id,qrId:s.qrId});
+    return Promise.reject(new Error('Supervisor QR not recognised'));
   },
-  resetEmployee: async (id) => {
-    const eRef = firestore.collection('employees').doc(id);
-    const eDoc = await eRef.get();
-    const emp = eDoc.data();
-    const batch = firestore.batch();
-    (emp.tokens||[]).forEach(tid => batch.update(firestore.collection('tokens').doc(tid), {assignedTo:null,assignedRoll:null,assignedAt:null,assignedBy:null,sessionId:null}));
-    batch.update(eRef, {paidTokens: firebase.firestore.FieldValue.increment(emp.totalTokens||0), tokens:[], totalTokens:0});
-    return batch.commit();
+  getEmployees:()=>Promise.resolve([...DB.employees]),
+  getEmployeeByRoll:(rollNo)=>Promise.resolve(DB.employees.find(e=>e.rollNo===rollNo.trim())||null),
+  getEmployeeById:(id)=>Promise.resolve(DB.employees.find(e=>e.id===id)||null),
+  addEmployee:(emp)=>{DB.employees.push(emp);return Promise.resolve();},
+  removeEmployee:(id)=>{DB.employees=DB.employees.filter(e=>e.id!==id);return Promise.resolve();},
+  getTokens:()=>Promise.resolve([...DB.tokens]),
+  getToken:(id)=>Promise.resolve(DB.tokens.find(t=>t.id===id)||null),
+  assignToken:(tokenId,empId,rollNo,supName,sessionId)=>{
+    const t=DB.tokens.find(t=>t.id===tokenId);
+    if(!t) return Promise.reject(new Error('Token not found'));
+    if(t.assignedTo&&t.lockedDate===today()) return Promise.reject(new Error(`Token already used today by ${t.assignedTo}`));
+    if(t.assignedTo&&t.lockedDate!==today()) return Promise.reject(new Error('Token locked — reset by admin required'));
+    t.assignedTo=empId;t.assignedRoll=rollNo;t.assignedAt=new Date().toISOString();
+    t.assignedBy=supName;t.sessionId=sessionId;t.lockedDate=today();
+    const e=DB.employees.find(e=>e.id===empId);
+    if(e){e.tokens.push(tokenId);e.totalTokens=(e.totalTokens||0)+1;}
+    return Promise.resolve();
   },
-  getSupervisors: () => firestore.collection('supervisors').get().then(s=>s.docs.map(d=>({id:d.id,...d.data()}))),
-  addSupervisor: (s) => firestore.collection('supervisors').doc(s.id).set(s),
-  removeSupervisor: (id) => firestore.collection('supervisors').doc(id).delete(),
+  resetEmployee:(id)=>{
+    const e=DB.employees.find(e=>e.id===id);
+    if(e){
+      DB.tokens.forEach(t=>{if(t.assignedTo===id){t.assignedTo=null;t.assignedRoll=null;t.assignedAt=null;t.assignedBy=null;t.sessionId=null;t.lockedDate=null;}});
+      e.paidTokens=(e.paidTokens||0)+e.totalTokens;e.tokens=[];e.totalTokens=0;
+    }
+    return Promise.resolve();
+  },
+  getSupervisors:()=>Promise.resolve([...DB.supervisors]),
+  addSupervisor:(s)=>{DB.supervisors.push(s);return Promise.resolve();},
+  removeSupervisor:(id)=>{DB.supervisors=DB.supervisors.filter(s=>s.id!==id);return Promise.resolve();},
 };
 
-
-// ═══════════════════════════════════════════
-// TOAST
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════
 function useToast(){
   const[toasts,setToasts]=useState([]);
-  const show=(msg,type='info')=>{
-    const id=Date.now();
-    setToasts(t=>[...t,{id,msg,type}]);
-    setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),3500);
-  };
+  const show=(msg,type='info')=>{const id=Date.now();setToasts(t=>[...t,{id,msg,type}]);setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),3500);};
   return{toasts,show};
 }
 
-// ═══════════════════════════════════════════
-// QR MODAL
-// ═══════════════════════════════════════════
-function QRModal({tokenId,onClose}){
-  const ref=useRef(null);
+function CamScanner({onScan,onClose,label=''}){
+  const vidRef=useRef();const canRef=useRef();const streamRef=useRef();const animRef=useRef();
+  const[status,setStatus]=useState('Starting camera...');
+  const[camErr,setCamErr]=useState(null);
+  const lastRef=useRef('');
   useEffect(()=>{
-    if(ref.current&&window.QRCode){
-      ref.current.innerHTML='';
-      new window.QRCode(ref.current,{text:tokenId,width:180,height:180,colorDark:"#000000",colorLight:"#ffffff"});
+    navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(stream=>{
+      streamRef.current=stream;
+      if(vidRef.current){vidRef.current.srcObject=stream;vidRef.current.play();setStatus(label||'Point at QR code...');}
+      animRef.current=requestAnimationFrame(tick);
+    }).catch(()=>setCamErr('Camera access denied. Use manual input below.'));
+    return()=>{streamRef.current?.getTracks().forEach(t=>t.stop());cancelAnimationFrame(animRef.current);};
+  },[]);
+  const tick=()=>{
+    const v=vidRef.current,c=canRef.current;
+    if(v&&c&&v.readyState===v.HAVE_ENOUGH_DATA){
+      c.width=v.videoWidth;c.height=v.videoHeight;
+      c.getContext('2d').drawImage(v,0,0);
+      const img=c.getContext('2d').getImageData(0,0,c.width,c.height);
+      const code=window.jsQR&&window.jsQR(img.data,img.width,img.height);
+      if(code&&code.data&&code.data!==lastRef.current){
+        lastRef.current=code.data;setStatus('✓ Scanned: '+code.data);
+        onScan(code.data);
+        setTimeout(()=>{lastRef.current='';setStatus(label||'Ready for next scan...');},2000);
+      }
     }
-  },[tokenId]);
+    animRef.current=requestAnimationFrame(tick);
+  };
+  return(
+    <div>
+      <div className="cam-wrap">
+        {camErr?<div style={{padding:32,textAlign:'center',color:'var(--danger)',fontSize:13}}>{camErr}</div>:(
+          <>
+            <video ref={vidRef} playsInline muted style={{width:'100%',maxHeight:240,objectFit:'cover',display:'block'}}/>
+            <canvas ref={canRef} style={{display:'none'}}/>
+            <div className="cam-frame"/><div className="cam-line"/>
+            <div className="cam-foot">{status}</div>
+          </>
+        )}
+      </div>
+      <button className="btn btn-danger btn-sm" onClick={onClose}>✕ Close camera</button>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
+// LOGIN
+// ═══════════════════════════════════════════════════
+function Login({onLogin}){
+  const[u,setU]=useState('');const[p,setP]=useState('');const[err,setErr]=useState('');const[busy,setBusy]=useState(false);
+  const[camOpen,setCamOpen]=useState(false);
+  const go=async()=>{
+    if(!u||!p){setErr('Enter username and password');return;}
+    setBusy(true);setErr('');
+    try{onLogin(await db.login(u.trim(),p));}
+    catch(e){setErr(e.message);}finally{setBusy(false);}
+  };
+  const handleQR=async(val)=>{
+    setCamOpen(false);
+    try{onLogin(await db.loginByQR(val.trim()));}
+    catch(e){setErr(e.message);}
+  };
+  return(
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-logo">⬡ TOKENPAY</div>
+        <div className="login-sub">Workforce Token System v3</div>
+        {camOpen?(
+          <CamScanner onScan={handleQR} onClose={()=>setCamOpen(false)} label="Scan supervisor QR ID card..."/>
+        ):(
+          <>
+            <div className="fg"><label>Username</label><input value={u} onChange={e=>setU(e.target.value)} onKeyDown={e=>e.key==='Enter'&&go()} placeholder="admin / sup1 / sup2" autoFocus/></div>
+            <div className="fg"><label>Password</label><input type="password" value={p} onChange={e=>setP(e.target.value)} onKeyDown={e=>e.key==='Enter'&&go()} placeholder="••••••••"/></div>
+            <button className="btn btn-primary btn-full" onClick={go} disabled={busy} style={{marginBottom:10}}>{busy?'Signing in...':'Sign In'}</button>
+            <button className="btn btn-ghost btn-full" onClick={()=>setCamOpen(true)}>📷 Scan Supervisor QR Card</button>
+          </>
+        )}
+        {err&&<div className="err-msg">{err}</div>}
+        <div style={{marginTop:18,fontSize:10,color:'var(--muted)',textAlign:'center',fontFamily:'var(--mono)'}}>DEMO · admin/admin123 · sup1/pass1</div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
+// ADMIN — ADD EMPLOYEE MODAL (scan QR then fill form)
+// ═══════════════════════════════════════════════════
+function AddEmployeeModal({onClose,onSaved,toast}){
+  const[step,setStep]=useState('scan'); // scan | form
+  const[scannedQR,setScannedQR]=useState('');
+  const[camOpen,setCamOpen]=useState(false);
+  const[manualQR,setManualQR]=useState('');
+  const[form,setForm]=useState({name:'',rollNo:'',mobile:'',department:''});
+  const[busy,setBusy]=useState(false);
+
+  const handleQRScan=async(val)=>{
+    setCamOpen(false);
+    const qr=val.trim();
+    // check if already registered
+    const existing=await db.getEmployeeByRoll(qr);
+    if(existing){toast.show('This QR is already registered to '+existing.name,'error');return;}
+    setScannedQR(qr);setForm(f=>({...f,rollNo:qr}));setStep('form');
+  };
+
+  const handleManual=async()=>{
+    if(!manualQR.trim()){toast.show('Enter QR value','error');return;}
+    handleQRScan(manualQR.trim());
+  };
+
+  const save=async()=>{
+    if(!form.name||!form.rollNo){toast.show('Name and Roll No required','error');return;}
+    setBusy(true);
+    try{
+      const id=`EMP${String(Date.now()).slice(-6)}`;
+      await db.addEmployee({id,name:form.name,rollNo:form.rollNo,mobile:form.mobile,department:form.department,tokens:[],totalTokens:0,paidTokens:0,createdAt:today()});
+      toast.show('Employee registered!','success');
+      onSaved();onClose();
+    }catch(e){toast.show(e.message,'error');}finally{setBusy(false);}
+  };
+
   return(
     <div className="overlay" onClick={onClose}>
       <div className="modal" onClick={e=>e.stopPropagation()}>
-        <div className="modal-title">TOKEN QR CODE</div>
-        <div className="qr-wrap"><div ref={ref}/></div>
-        <div className="td"><span>Token ID</span>{tokenId}</div>
-        <div className="td"><span>Instructions</span>Supervisor scans this QR to assign token to employee</div>
-        <div style={{display:'flex',gap:8,marginTop:10}}>
-          <button className="bsm" style={{flex:1}} onClick={onClose}>CLOSE</button>
-          <button className="bsm ok" style={{flex:1}} onClick={()=>window.print()}>PRINT</button>
+        <div className="modal-title">Register New Employee</div>
+
+        {step==='scan'&&(
+          <>
+            <div className="verify-badge vb-info">📋 Step 1: Scan or enter the employee QR</div>
+            {camOpen?(
+              <CamScanner onScan={handleQRScan} onClose={()=>setCamOpen(false)} label="Scan employee QR card..."/>
+            ):(
+              <div className="scanbox">
+                <div className="scan-icon">🪪</div>
+                <div className="scan-hint">Scan the physical QR card the employee carries, or enter its value manually.</div>
+                <input className="scan-input" value={manualQR} onChange={e=>setManualQR(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleManual()} placeholder="Scan or type QR value"/>
+                <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}>
+                  <button className="btn btn-ghost btn-sm" onClick={()=>setCamOpen(true)}>📷 Camera</button>
+                  <button className="btn btn-success btn-sm" onClick={handleManual}>→ Continue</button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {step==='form'&&(
+          <>
+            <div className="verify-badge vb-success pop">✓ QR Scanned: {scannedQR}</div>
+            <div className="fg"><label>Full Name *</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Employee full name" autoFocus/></div>
+            <div className="fg-row">
+              <div className="fg"><label>Roll / Employee ID *</label><input value={form.rollNo} onChange={e=>setForm({...form,rollNo:e.target.value})} placeholder="Auto-filled from QR"/></div>
+              <div className="fg"><label>Mobile (optional)</label><input value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="10-digit number" maxLength={10}/></div>
+            </div>
+            <div className="fg"><label>Department</label><input value={form.department} onChange={e=>setForm({...form,department:e.target.value})} placeholder="Production, Packing..."/></div>
+          </>
+        )}
+
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          {step==='form'&&<button className="btn btn-primary" onClick={save} disabled={busy}>{busy?'Saving...':'✓ Save Employee'}</button>}
         </div>
       </div>
     </div>
   );
 }
 
-// ═══════════════════════════════════════════
-// CAMERA QR SCANNER COMPONENT
-// ═══════════════════════════════════════════
-function CameraScanner({onScan,onClose}){
-  const videoRef=useRef(null);
-  const canvasRef=useRef(null);
-  const streamRef=useRef(null);
-  const animRef=useRef(null);
-  const[status,setStatus]=useState('Initializing camera...');
-  const[camError,setCamError]=useState(null);
-  const[lastScan,setLastScan]=useState(null);
+// ═══════════════════════════════════════════════════
+// ADMIN — ADD SUPERVISOR MODAL (same flow as employee)
+// ═══════════════════════════════════════════════════
+function AddSupervisorModal({onClose,onSaved,toast}){
+  const[step,setStep]=useState('scan'); // scan | form
+  const[scannedQR,setScannedQR]=useState('');
+  const[camOpen,setCamOpen]=useState(false);
+  const[manualQR,setManualQR]=useState('');
+  const[form,setForm]=useState({name:'',supId:'',mobile:'',username:'',password:''});
+  const[busy,setBusy]=useState(false);
 
-  useEffect(()=>{
-    startCamera();
-    return()=>stopCamera();
-  },[]);
+  const handleQRScan=async(val)=>{
+    setCamOpen(false);
+    const qr=val.trim();
+    // check if QR already registered as a supervisor
+    const existing=await db.getSupervisors();
+    if(existing.find(s=>s.qrId===qr)){toast.show('This QR is already registered to a supervisor','error');return;}
+    setScannedQR(qr);
+    setForm(f=>({...f,supId:qr}));
+    setStep('form');
+  };
 
-  const startCamera=async()=>{
+  const handleManual=()=>{
+    if(!manualQR.trim()){toast.show('Enter QR value','error');return;}
+    handleQRScan(manualQR.trim());
+  };
+
+  const save=async()=>{
+    if(!form.name||!form.username||!form.password){toast.show('Name, username and password are required','error');return;}
+    const existing=await db.getSupervisors();
+    if(existing.find(s=>s.username===form.username)){toast.show('Username already taken','error');return;}
+    setBusy(true);
     try{
-      const stream=await navigator.mediaDevices.getUserMedia({
-        video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}
-      });
-      streamRef.current=stream;
-      if(videoRef.current){
-        videoRef.current.srcObject=stream;
-        videoRef.current.play();
-        setStatus('Point camera at token QR code...');
-        requestAnimationFrame(tick);
-      }
-    }catch(e){
-      setCamError('Camera access denied. Please allow camera access or use manual input below.');
-    }
-  };
-
-  const stopCamera=()=>{
-    if(streamRef.current) streamRef.current.getTracks().forEach(t=>t.stop());
-    if(animRef.current) cancelAnimationFrame(animRef.current);
-  };
-
-  const tick=()=>{
-    const video=videoRef.current;
-    const canvas=canvasRef.current;
-    if(!video||!canvas) return;
-    if(video.readyState===video.HAVE_ENOUGH_DATA){
-      canvas.width=video.videoWidth;
-      canvas.height=video.videoHeight;
-      const ctx=canvas.getContext('2d');
-      ctx.drawImage(video,0,0,canvas.width,canvas.height);
-      const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
-      if(window.jsQR){
-        const code=window.jsQR(imageData.data,imageData.width,imageData.height,{inversionAttempts:'dontInvert'});
-        if(code&&code.data&&code.data!==lastScan){
-          setLastScan(code.data);
-          setStatus(`✅ Scanned: ${code.data}`);
-          onScan(code.data);
-          setTimeout(()=>{setLastScan(null);setStatus('Ready for next scan...');},2000);
-        }
-      }
-    }
-    animRef.current=requestAnimationFrame(tick);
+      const id=`SUP${String(Date.now()).slice(-6)}`;
+      await db.addSupervisor({id,name:form.name,supId:form.supId,mobile:form.mobile,username:form.username,password:form.password,qrId:scannedQR,active:true});
+      toast.show('Supervisor registered!','success');
+      onSaved();onClose();
+    }catch(e){toast.show(e.message,'error');}finally{setBusy(false);}
   };
 
   return(
-    <div style={{marginBottom:16}}>
-      <div className="cam-wrap">
-        {camError?(
-          <div style={{padding:40,textAlign:'center',color:'var(--danger)',fontSize:13}}>{camError}</div>
-        ):(
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-title">Register New Supervisor</div>
+
+        {step==='scan'&&(
           <>
-            <video ref={videoRef} playsInline muted style={{width:'100%',maxHeight:260,objectFit:'cover',display:'block'}}/>
-            <canvas ref={canvasRef} style={{display:'none'}}/>
-            <div className="cam-overlay">
-              <div className="cam-frame"/>
-              <div className="cam-scan-line" style={{position:'absolute'}}/>
-            </div>
-            <div className="cam-status">{status}</div>
+            <div className="verify-badge vb-info">📋 Step 1: Scan or enter the supervisor's QR card</div>
+            {camOpen?(
+              <CamScanner onScan={handleQRScan} onClose={()=>setCamOpen(false)} label="Scan supervisor QR card..."/>
+            ):(
+              <div className="scanbox">
+                <div className="scan-icon">🪪</div>
+                <div className="scan-hint">Scan the physical QR card the supervisor carries, or enter its value manually.</div>
+                <input className="scan-input" value={manualQR} onChange={e=>setManualQR(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleManual()} placeholder="Scan or type QR value" autoFocus/>
+                <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}>
+                  <button className="btn btn-ghost btn-sm" onClick={()=>setCamOpen(true)}>📷 Camera</button>
+                  <button className="btn btn-success btn-sm" onClick={handleManual}>→ Continue</button>
+                </div>
+              </div>
+            )}
           </>
         )}
-      </div>
-      <button className="bsm danger" onClick={()=>{stopCamera();onClose();}}>✕ CLOSE CAMERA</button>
-    </div>
-  );
-}
 
-// ═══════════════════════════════════════════
-// LOGIN
-// ═══════════════════════════════════════════
-function Login({onLogin}){
-  const[u,setU]=useState('');const[p,setP]=useState('');const[err,setErr]=useState('');const[loading,setLoading]=useState(false);
-  const submit=async()=>{
-    if(!u||!p){setErr('Enter username and password');return;}
-    setLoading(true);setErr('');
-    try{const user=await db.login(u.trim(),p);onLogin(user);}
-    catch(e){setErr(e.message);}
-    finally{setLoading(false);}
-  };
-  return(
-    <div className="login-wrap">
-      <div className="login-card">
-        <div className="login-title">⬡ TOKENPAY</div>
-        <div className="login-sub">Workforce Token Management System v2</div>
-        <div className="fg"><label>Username</label><input value={u} onChange={e=>setU(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()} placeholder="admin / sup1 / sup2" autoFocus/></div>
-        <div className="fg"><label>Password</label><input type="password" value={p} onChange={e=>setP(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()} placeholder="••••••••"/></div>
-        <button className="btn-primary" onClick={submit} disabled={loading}>{loading?'SIGNING IN...':'SIGN IN'}</button>
-        {err&&<div className="err">{err}</div>}
-        <div style={{marginTop:16,fontSize:10,color:'var(--muted)',textAlign:'center',fontFamily:'var(--mono)'}}>DEMO · admin/admin123 · sup1/pass1 · sup2/pass2</div>
+        {step==='form'&&(
+          <>
+            <div className="verify-badge vb-success pop">✓ QR Scanned: {scannedQR}</div>
+            <div className="fg"><label>Full Name *</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Supervisor full name" autoFocus/></div>
+            <div className="fg-row">
+              <div className="fg"><label>Supervisor ID</label><input value={form.supId} onChange={e=>setForm({...form,supId:e.target.value})} placeholder="Auto-filled from QR"/></div>
+              <div className="fg"><label>Mobile (optional)</label><input value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="10-digit number" maxLength={10}/></div>
+            </div>
+            <div className="fg-row">
+              <div className="fg"><label>Login Username *</label><input value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="sup_name"/></div>
+              <div className="fg"><label>Password *</label><input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Password"/></div>
+            </div>
+          </>
+        )}
+
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          {step==='form'&&<button className="btn btn-primary" onClick={save} disabled={busy}>{busy?'Saving...':'✓ Save Supervisor'}</button>}
+        </div>
       </div>
     </div>
   );
 }
 
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════
 // ADMIN DASHBOARD
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════
 function AdminDashboard({user,toast}){
   const[tab,setTab]=useState('overview');
   const[employees,setEmployees]=useState([]);
   const[tokens,setTokens]=useState([]);
   const[supervisors,setSupervisors]=useState([]);
-  const[qrToken,setQrToken]=useState(null);
+  const[showAddEmp,setShowAddEmp]=useState(false);
+  const[showAddSup,setShowAddSup]=useState(false);
   const[searchEmp,setSearchEmp]=useState('');
   const[searchTok,setSearchTok]=useState('');
   const[tokResult,setTokResult]=useState(null);
-  const[empForm,setEmpForm]=useState({name:'',rollNo:'',department:''});
-  const[supForm,setSupForm]=useState({name:'',username:'',password:''});
 
   const load=async()=>{
     const[e,t,s]=await Promise.all([db.getEmployees(),db.getTokens(),db.getSupervisors()]);
@@ -410,11 +569,21 @@ function AdminDashboard({user,toast}){
   useEffect(()=>{load();},[]);
 
   const assigned=tokens.filter(t=>t.assignedTo).length;
+  const totalToks=employees.reduce((s,e)=>s+(e.totalTokens||0),0);
 
-  const handlePay=async(empId)=>{
-    if(!window.confirm('Confirm salary paid & reset tokens?')) return;
-    await db.resetEmployee(empId);
-    toast.show('Salary paid & profile reset!','success');load();
+  const handlePay=async(empId,name)=>{
+    if(!window.confirm(`Pay salary and reset tokens for ${name}?`)) return;
+    await db.resetEmployee(empId);toast.show('Salary paid & reset!','success');load();
+  };
+
+  const handleRemoveEmp=async(id,name)=>{
+    if(!window.confirm(`Remove employee ${name}? This cannot be undone.`)) return;
+    await db.removeEmployee(id);toast.show('Employee removed','info');load();
+  };
+
+  const handleRemoveSup=async(id,name)=>{
+    if(!window.confirm(`Remove supervisor ${name}?`)) return;
+    await db.removeSupervisor(id);toast.show('Supervisor removed','info');load();
   };
 
   const handleTokSearch=async()=>{
@@ -422,185 +591,161 @@ function AdminDashboard({user,toast}){
     const t=await db.getToken(searchTok.trim().toUpperCase());
     if(!t){setTokResult({error:'Token not found'});return;}
     if(!t.assignedTo){setTokResult({status:'free',token:t});return;}
-    const emp=await db.getEmployee(t.assignedTo);
+    const emp=await db.getEmployeeById(t.assignedTo);
     setTokResult({status:'assigned',token:t,employee:emp});
   };
 
-  const handleAddEmp=async()=>{
-    const{name,rollNo,department}=empForm;
-    if(!name||!rollNo){toast.show('Name and Roll No required','error');return;}
-    if(employees.find(e=>e.rollNo===rollNo)){toast.show('Roll No already exists','error');return;}
-    const id=`EMP${String(employees.length+1).padStart(3,'0')}`;
-    await db.addEmployee({id,name,rollNo,department,tokens:[],totalTokens:0,paidTokens:0});
-    toast.show('Employee added!','success');
-    setEmpForm({name:'',rollNo:'',department:''});load();
-  };
-
-  const handleAddSup=async()=>{
-    const{name,username,password}=supForm;
-    if(!name||!username||!password){toast.show('All fields required','error');return;}
-    if(supervisors.find(s=>s.username===username)){toast.show('Username taken','error');return;}
-    const id=`SUP${String(supervisors.length+1).padStart(3,'0')}`;
-    await db.addSupervisor({id,name,username,password,active:true});
-    toast.show('Supervisor created!','success');
-    setSupForm({name:'',username:'',password:''});load();
-  };
-
   const fEmps=employees.filter(e=>e.name.toLowerCase().includes(searchEmp.toLowerCase())||e.rollNo.toLowerCase().includes(searchEmp.toLowerCase())||(e.department||'').toLowerCase().includes(searchEmp.toLowerCase()));
-  const fToks=tokens.filter(t=>t.id.toLowerCase().includes(searchTok.toLowerCase())||(t.assignedRoll||'').toLowerCase().includes(searchTok.toLowerCase())).slice(0,60);
 
   return(
     <div>
       <div className="tabs">
-        {['overview','employees','tokens','supervisors','token-search'].map(t=>(
+        {['overview','employees','supervisors','tokens','token-search'].map(t=>(
           <button key={t} className={`tab ${tab===t?'active':''}`} onClick={()=>setTab(t)}>{t.replace('-',' ')}</button>
         ))}
       </div>
 
+      {/* ── OVERVIEW ── */}
       {tab==='overview'&&(
-        <div>
-          <div className="g3" style={{marginBottom:16}}>
-            <div className="card"><div className="ct">Employees</div><div className="stat-n">{employees.length}</div><div className="stat-l">profiles</div></div>
+        <>
+          <div className="g4 mb14">
+            <div className="card"><div className="ct">Employees</div><div className="stat-n">{employees.length}</div><div className="stat-l">registered</div></div>
+            <div className="card"><div className="ct">Supervisors</div><div className="stat-n" style={{color:'var(--accent3)'}}>{supervisors.length}</div><div className="stat-l">active</div></div>
             <div className="card"><div className="ct">Tokens Assigned</div><div className="stat-n" style={{color:'var(--accent2)'}}>{assigned}</div><div className="stat-l">of {tokens.length}</div></div>
-            <div className="card"><div className="ct">Supervisors</div><div className="stat-n" style={{color:'var(--muted)'}}>{supervisors.length}</div><div className="stat-l">active accounts</div></div>
+            <div className="card"><div className="ct">Total Earned</div><div className="stat-n" style={{color:'var(--accent)'}}>{totalToks}</div><div className="stat-l">this period</div></div>
           </div>
           <div className="card">
-            <div className="ct">Top Earners — Current Period</div>
-            {[...employees].sort((a,b)=>(b.totalTokens||0)-(a.totalTokens||0)).slice(0,8).map(emp=>(
-              <div key={emp.id} className="ecard" style={{cursor:'default'}}>
-                <div className="avt">{emp.name.charAt(0)}</div>
-                <div className="ei"><div className="en">{emp.name}</div><div className="er">{emp.rollNo} · {emp.department}</div></div>
-                <div><div className="etok">{emp.totalTokens||0}</div><div className="etl">TOKENS</div></div>
+            <div className="ct">Top earners — current period</div>
+            {[...employees].sort((a,b)=>(b.totalTokens||0)-(a.totalTokens||0)).slice(0,6).map(e=>(
+              <div key={e.id} className="erow" style={{cursor:'default'}}>
+                <div className="avt avt-y">{e.name.charAt(0)}</div>
+                <div className="ei"><div className="en">{e.name}</div><div className="er">{e.rollNo} · {e.department}</div></div>
+                <div><div className="etok">{e.totalTokens||0}</div><div className="etl">tokens</div></div>
               </div>
             ))}
           </div>
-        </div>
+        </>
       )}
 
+      {/* ── EMPLOYEES ── */}
       {tab==='employees'&&(
-        <div>
-          <div className="card" style={{marginBottom:14}}>
-            <div className="ct">Add New Employee</div>
-            <div className="g3">
-              <div className="fg"><label>Full Name</label><input value={empForm.name} onChange={e=>setEmpForm({...empForm,name:e.target.value})} placeholder="Employee name"/></div>
-              <div className="fg"><label>Roll Number</label><input value={empForm.rollNo} onChange={e=>setEmpForm({...empForm,rollNo:e.target.value})} placeholder="ROLL0001"/></div>
-              <div className="fg"><label>Department</label><input value={empForm.department} onChange={e=>setEmpForm({...empForm,department:e.target.value})} placeholder="Production"/></div>
-            </div>
-            <button className="bsm ok" onClick={handleAddEmp}>+ ADD EMPLOYEE</button>
+        <>
+          <div className="sh mb14">
+            <span className="st">Employee Profiles ({employees.length})</span>
+            <button className="btn btn-success btn-sm" onClick={()=>setShowAddEmp(true)}>+ Register Employee</button>
           </div>
           <div className="card">
-            <div className="sh"><div className="st">Profiles ({employees.length})</div></div>
             <div className="sbar"><input value={searchEmp} onChange={e=>setSearchEmp(e.target.value)} placeholder="Search name, roll no, department..."/></div>
             <div className="tw">
               <table>
-                <thead><tr><th>Employee</th><th>Roll No</th><th>Dept</th><th>Tokens</th><th>All-time Paid</th><th>Action</th></tr></thead>
+                <thead><tr><th>Employee</th><th>Roll No</th><th>Mobile</th><th>Dept</th><th>Tokens</th><th>Paid</th><th>Actions</th></tr></thead>
                 <tbody>
-                  {fEmps.map(emp=>(
-                    <tr key={emp.id}>
-                      <td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="avt" style={{width:28,height:28,fontSize:10}}>{emp.name.charAt(0)}</div>{emp.name}</div></td>
-                      <td className="mc">{emp.rollNo}</td>
-                      <td><span className="badge bx">{emp.department||'—'}</span></td>
-                      <td><span className="mc" style={{color:'var(--accent)'}}>{emp.totalTokens||0}</span></td>
-                      <td className="mc" style={{color:'var(--muted)'}}>{emp.paidTokens||0}</td>
-                      <td><button className="bsm ok" onClick={()=>handlePay(emp.id)}>PAY & RESET</button></td>
+                  {fEmps.map(e=>(
+                    <tr key={e.id}>
+                      <td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="avt avt-y" style={{width:28,height:28,fontSize:10}}>{e.name.charAt(0)}</div>{e.name}</div></td>
+                      <td className="mc">{e.rollNo}</td>
+                      <td className="mc" style={{color:'var(--muted2)'}}>{e.mobile||'—'}</td>
+                      <td><span className="badge b-gray">{e.department||'—'}</span></td>
+                      <td><span style={{fontFamily:'var(--mono)',color:'var(--accent)'}}>{e.totalTokens||0}</span></td>
+                      <td className="mc" style={{color:'var(--muted2)'}}>{e.paidTokens||0}</td>
+                      <td>
+                        <div style={{display:'flex',gap:6}}>
+                          <button className="btn btn-success btn-sm" onClick={()=>handlePay(e.id,e.name)}>Pay & Reset</button>
+                          <button className="btn btn-danger btn-sm" onClick={()=>handleRemoveEmp(e.id,e.name)}>Remove</button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </div>
-        </div>
+        </>
       )}
 
+      {/* ── SUPERVISORS ── */}
+      {tab==='supervisors'&&(
+        <>
+          <div className="sh mb14">
+            <span className="st">Supervisor Accounts ({supervisors.length})</span>
+            <button className="btn btn-success btn-sm" onClick={()=>setShowAddSup(true)}>+ Register Supervisor</button>
+          </div>
+          <div className="card">
+            <div className="tw">
+              <table>
+                <thead><tr><th>Name</th><th>Supervisor ID</th><th>Mobile</th><th>Username</th><th>QR Card ID</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody>
+                  {supervisors.map(s=>(
+                    <tr key={s.id}>
+                      <td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="avt avt-p" style={{width:28,height:28,fontSize:10}}>{s.name.charAt(0)}</div>{s.name}</div></td>
+                      <td className="mc">{s.supId||s.id}</td>
+                      <td className="mc" style={{color:'var(--muted2)'}}>{s.mobile||'—'}</td>
+                      <td className="mc">{s.username}</td>
+                      <td className="mc" style={{color:'var(--accent3)',fontSize:10}}>{s.qrId}</td>
+                      <td><span className="badge b-green">Active</span></td>
+                      <td><button className="btn btn-danger btn-sm" onClick={()=>handleRemoveSup(s.id,s.name)}>Remove</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── TOKENS ── */}
       {tab==='tokens'&&(
         <div className="card">
-          <div className="sh"><div className="st">Token Pool ({tokens.length})</div><span className="badge by">{assigned} ASSIGNED</span></div>
-          <div className="sbar"><input value={searchTok} onChange={e=>setSearchTok(e.target.value)} placeholder="Search token ID or roll no..."/></div>
+          <div className="sh">
+            <span className="st">Token Pool ({tokens.length})</span>
+            <span className="badge b-yellow">{assigned} assigned</span>
+          </div>
+          <div className="sbar"><input value={searchTok} onChange={e=>{setSearchTok(e.target.value);setTokResult(null);}} placeholder="Search token ID..."/></div>
           <div className="tw">
             <table>
-              <thead><tr><th>Token ID</th><th>Status</th><th>Employee</th><th>Roll No</th><th>Assigned By</th><th>Date</th><th>QR</th></tr></thead>
+              <thead><tr><th>Token</th><th>Status</th><th>Employee</th><th>Roll No</th><th>Assigned By</th><th>Date</th></tr></thead>
               <tbody>
-                {fToks.map(tok=>(
-                  <tr key={tok.id}>
-                    <td className="mc">{tok.id}</td>
-                    <td><span className={`badge ${tok.assignedTo?'bg':'bx'}`}>{tok.assignedTo?'ASSIGNED':'FREE'}</span></td>
-                    <td style={{fontSize:12}}>{tok.assignedTo||'—'}</td>
-                    <td className="mc">{tok.assignedRoll||'—'}</td>
-                    <td style={{fontSize:11,color:'var(--muted)'}}>{tok.assignedBy||'—'}</td>
-                    <td style={{fontSize:10,color:'var(--muted)'}}>{tok.assignedAt?new Date(tok.assignedAt).toLocaleDateString():'—'}</td>
-                    <td><button className="bsm" onClick={()=>setQrToken(tok.id)}>QR</button></td>
+                {tokens.filter(t=>t.id.includes(searchTok.toUpperCase())||(t.assignedRoll||'').includes(searchTok.toUpperCase())).slice(0,60).map(t=>(
+                  <tr key={t.id}>
+                    <td className="mc">{t.id}</td>
+                    <td><span className={`badge ${t.assignedTo?'b-green':'b-gray'}`}>{t.assignedTo?'Assigned':'Free'}</span></td>
+                    <td style={{fontSize:12}}>{t.assignedTo||'—'}</td>
+                    <td className="mc">{t.assignedRoll||'—'}</td>
+                    <td style={{fontSize:11,color:'var(--muted2)'}}>{t.assignedBy||'—'}</td>
+                    <td style={{fontSize:10,color:'var(--muted)'}}>{t.lockedDate||'—'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div style={{fontSize:10,color:'var(--muted)',marginTop:10,fontFamily:'var(--mono)'}}>Showing first 60. Use search to filter.</div>
         </div>
       )}
 
-      {tab==='supervisors'&&(
-        <div>
-          <div className="card" style={{marginBottom:14}}>
-            <div className="ct">Create Supervisor Account</div>
-            <div className="g3">
-              <div className="fg"><label>Full Name</label><input value={supForm.name} onChange={e=>setSupForm({...supForm,name:e.target.value})} placeholder="Supervisor name"/></div>
-              <div className="fg"><label>Username</label><input value={supForm.username} onChange={e=>setSupForm({...supForm,username:e.target.value})} placeholder="sup_name"/></div>
-              <div className="fg"><label>Password</label><input type="password" value={supForm.password} onChange={e=>setSupForm({...supForm,password:e.target.value})} placeholder="Password"/></div>
-            </div>
-            <button className="bsm ok" onClick={handleAddSup}>+ CREATE SUPERVISOR</button>
-          </div>
-          <div className="card">
-            <div className="ct">Supervisor Accounts ({supervisors.length})</div>
-            <div className="tw">
-              <table>
-                <thead><tr><th>ID</th><th>Name</th><th>Username</th><th>Status</th><th>Action</th></tr></thead>
-                <tbody>
-                  {supervisors.map(sup=>(
-                    <tr key={sup.id}>
-                      <td className="mc">{sup.id}</td>
-                      <td>{sup.name}</td>
-                      <td className="mc">{sup.username}</td>
-                      <td><span className="badge bg">ACTIVE</span></td>
-                      <td><button className="bsm danger" onClick={async()=>{await db.removeSupervisor(sup.id);toast.show('Removed','info');load();}}>REMOVE</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* ── TOKEN SEARCH ── */}
       {tab==='token-search'&&(
         <div className="card">
           <div className="ct">Token Lookup</div>
-          <p style={{fontSize:12,color:'var(--muted)',marginBottom:16}}>Enter any token ID to see its full assignment history and current owner.</p>
+          <p style={{fontSize:12,color:'var(--muted)',marginBottom:16}}>Search any token to see who it belongs to and when it was assigned.</p>
           <div className="sbar">
             <input value={searchTok} onChange={e=>{setSearchTok(e.target.value);setTokResult(null);}} placeholder="TKN000001" onKeyDown={e=>e.key==='Enter'&&handleTokSearch()}/>
-            <button className="bsm ok" onClick={handleTokSearch}>SEARCH</button>
+            <button className="btn btn-success btn-sm" onClick={handleTokSearch}>Search</button>
           </div>
           {tokResult&&(
             <div style={{marginTop:14}}>
               {tokResult.error&&<div style={{color:'var(--danger)',fontFamily:'var(--mono)',fontSize:12}}>{tokResult.error}</div>}
-              {tokResult.status==='free'&&(
-                <div className="card" style={{borderColor:'var(--border)'}}>
-                  <div className="mc" style={{color:'var(--accent)',marginBottom:8}}>{tokResult.token.id}</div>
-                  <span className="badge bx">NOT ASSIGNED</span>
-                  <div style={{fontSize:12,color:'var(--muted)',marginTop:8}}>This token is available and has not been assigned to any employee.</div>
-                </div>
-              )}
+              {tokResult.status==='free'&&<div className="verify-badge vb-info">Token {tokResult.token.id} — Not yet assigned</div>}
               {tokResult.status==='assigned'&&tokResult.employee&&(
-                <div className="card" style={{borderColor:'var(--accent2)'}}>
-                  <div className="mc" style={{color:'var(--accent)',marginBottom:12}}>{tokResult.token.id}</div>
-                  <div className="ecard" style={{marginBottom:12,cursor:'default'}}>
-                    <div className="avt">{tokResult.employee.name.charAt(0)}</div>
+                <div>
+                  <div className="verify-badge vb-success">✓ Token {tokResult.token.id} — Assigned</div>
+                  <div className="erow" style={{cursor:'default',marginBottom:12}}>
+                    <div className="avt avt-y">{tokResult.employee.name.charAt(0)}</div>
                     <div className="ei"><div className="en">{tokResult.employee.name}</div><div className="er">{tokResult.employee.rollNo} · {tokResult.employee.department}</div></div>
                   </div>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-                    <div className="td"><span>Assigned By</span>{tokResult.token.assignedBy}</div>
-                    <div className="td"><span>Assigned At</span>{new Date(tokResult.token.assignedAt).toLocaleString()}</div>
-                    <div className="td"><span>Session ID</span>{tokResult.token.sessionId}</div>
-                    <div className="td"><span>Merged ID</span>{tokResult.token.id}::{tokResult.token.assignedRoll}</div>
+                  <div className="g2">
+                    <div className="card"><div className="ct">Assigned By</div><div style={{fontSize:13}}>{tokResult.token.assignedBy}</div></div>
+                    <div className="card"><div className="ct">Date Locked</div><div style={{fontFamily:'var(--mono)',fontSize:13}}>{tokResult.token.lockedDate}</div></div>
+                    <div className="card"><div className="ct">Merged ID</div><div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--accent2)'}}>{tokResult.token.id}::{tokResult.token.assignedRoll}</div></div>
+                    <div className="card"><div className="ct">Session</div><div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--muted2)'}}>{tokResult.token.sessionId}</div></div>
                   </div>
                 </div>
               )}
@@ -609,185 +754,221 @@ function AdminDashboard({user,toast}){
         </div>
       )}
 
-      {qrToken&&<QRModal tokenId={qrToken} onClose={()=>setQrToken(null)}/>}
+      {/* ── MODALS ── */}
+      {showAddEmp&&<AddEmployeeModal onClose={()=>setShowAddEmp(false)} onSaved={load} toast={toast}/>}
+      {showAddSup&&<AddSupervisorModal onClose={()=>setShowAddSup(false)} onSaved={load} toast={toast}/>}
     </div>
   );
 }
 
-// ═══════════════════════════════════════════
-// SUPERVISOR PANEL
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// SUPERVISOR PANEL — Step 1: verify employee, Step 2: scan tokens
+// ═══════════════════════════════════════════════════
 function SupervisorPanel({user,toast}){
   const[employees,setEmployees]=useState([]);
-  const[manualInput,setManualInput]=useState('');
-  const[selectedEmp,setSelectedEmp]=useState(null);
+  const[step,setStep]=useState('verify'); // verify | tokens
+  const[verifiedEmp,setVerifiedEmp]=useState(null);
   const[sessionTokens,setSessionTokens]=useState([]);
   const[sessionId]=useState(`SES-${Date.now()}`);
   const[empSearch,setEmpSearch]=useState('');
-  const[cameraOpen,setCameraOpen]=useState(false);
-  const[cardFlash,setCardFlash]=useState(false);
-  const scanInputRef=useRef(null);
+  const[empCam,setEmpCam]=useState(false);
+  const[empManual,setEmpManual]=useState('');
+  const[tokCam,setTokCam]=useState(false);
+  const[tokManual,setTokManual]=useState('');
+  const[tokBusy,setTokBusy]=useState(false);
+  const tokInputRef=useRef();
 
   useEffect(()=>{db.getEmployees().then(setEmployees);},[]);
 
-  const processToken=async(rawValue)=>{
-    const tokenId=rawValue.trim().toUpperCase();
-    if(!tokenId) return;
-    if(!selectedEmp){toast.show('Select an employee first!','error');return;}
-    try{
-      await db.assignToken(tokenId,selectedEmp.id,selectedEmp.rollNo,user.name,sessionId);
-      const merged=`${tokenId}::${selectedEmp.rollNo}`;
-      setSessionTokens(prev=>[...prev,{tokenId,merged,empName:selectedEmp.name,at:new Date().toLocaleTimeString()}]);
-      setManualInput('');
-      // refresh emp
-      const updated=await db.getEmployee(selectedEmp.id);
-      if(updated) setSelectedEmp(updated);
-      toast.show(`✅ ${tokenId} → ${selectedEmp.name}`,'success');
-      // flash
-      setCardFlash(true);setTimeout(()=>setCardFlash(false),600);
-    }catch(e){
-      toast.show(e.message,'error');
-      setManualInput('');
-    }
-    setTimeout(()=>scanInputRef.current?.focus(),100);
+  // ── STEP 1: verify employee by QR ──
+  const verifyEmployee=async(raw)=>{
+    setEmpCam(false);
+    const rollNo=raw.trim();
+    const emp=await db.getEmployeeByRoll(rollNo);
+    if(!emp){toast.show('Employee not found for QR: '+rollNo,'error');return;}
+    setVerifiedEmp(emp);setStep('tokens');
+    toast.show('Employee verified: '+emp.name,'success');
+    setTimeout(()=>tokInputRef.current?.focus(),300);
   };
 
-  const fEmps=employees.filter(e=>
-    e.name.toLowerCase().includes(empSearch.toLowerCase())||
-    e.rollNo.toLowerCase().includes(empSearch.toLowerCase())
-  );
+  // ── STEP 2: assign token ──
+  const assignToken=async(raw)=>{
+    const tokenId=raw.trim().toUpperCase();
+    if(!tokenId||!verifiedEmp) return;
+    setTokBusy(true);
+    try{
+      await db.assignToken(tokenId,verifiedEmp.id,verifiedEmp.rollNo,user.name,sessionId);
+      const merged=`${tokenId}::${verifiedEmp.rollNo}`;
+      setSessionTokens(p=>[...p,{tokenId,merged,at:new Date().toLocaleTimeString()}]);
+      setTokManual('');
+      // refresh employee token count
+      const updated=await db.getEmployeeById(verifiedEmp.id);
+      if(updated) setVerifiedEmp(updated);
+      toast.show(`✓ ${tokenId} assigned to ${verifiedEmp.name}`,'success');
+    }catch(e){toast.show(e.message,'error');}
+    finally{setTokBusy(false);setTokCam(false);setTimeout(()=>tokInputRef.current?.focus(),100);}
+  };
+
+  const resetSession=()=>{setStep('verify');setVerifiedEmp(null);setSessionTokens([]);setEmpManual('');setTokManual('');};
+
+  const fEmps=employees.filter(e=>e.name.toLowerCase().includes(empSearch.toLowerCase())||e.rollNo.toLowerCase().includes(empSearch.toLowerCase()));
 
   return(
     <div>
-      <div className="g2">
-        {/* LEFT: Employee list */}
-        <div>
-          <div className="card">
-            <div className="ct">Select Employee</div>
-            <div className="sbar" style={{marginBottom:10}}>
-              <input value={empSearch} onChange={e=>setEmpSearch(e.target.value)} placeholder="Search employee..."/>
-            </div>
-            <div style={{maxHeight:340,overflowY:'auto'}}>
-              {fEmps.map(emp=>(
-                <div key={emp.id} className={`ecard ${selectedEmp?.id===emp.id?'sel':''}`} onClick={()=>setSelectedEmp(emp)}>
-                  <div className={`avt ${selectedEmp?.id===emp.id?'sup':''}`}>{emp.name.charAt(0)}</div>
-                  <div className="ei"><div className="en">{emp.name}</div><div className="er">{emp.rollNo}</div></div>
-                  <div><div className="etok" style={{fontSize:13}}>{emp.totalTokens||0}</div><div className="etl">TOKENS</div></div>
+      {/* ── STEP INDICATOR ── */}
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
+        <div style={{display:'flex',alignItems:'center',gap:6,fontFamily:'var(--mono)',fontSize:11}}>
+          <div style={{width:24,height:24,borderRadius:'50%',background:step==='verify'?'var(--accent)':'var(--accent2)',color:'#07070d',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700}}>1</div>
+          <span style={{color:step==='verify'?'var(--accent)':'var(--accent2)'}}>Verify Employee</span>
+        </div>
+        <div style={{flex:1,height:1,background:step==='tokens'?'var(--accent2)':'var(--border)'}}/>
+        <div style={{display:'flex',alignItems:'center',gap:6,fontFamily:'var(--mono)',fontSize:11}}>
+          <div style={{width:24,height:24,borderRadius:'50%',background:step==='tokens'?'var(--accent2)':'var(--border2)',color:step==='tokens'?'#07070d':'var(--muted)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700}}>2</div>
+          <span style={{color:step==='tokens'?'var(--accent2)':'var(--muted)'}}>Assign Tokens</span>
+        </div>
+        {verifiedEmp&&<button className="btn btn-ghost btn-sm" onClick={resetSession}>↩ New Employee</button>}
+      </div>
+
+      {/* ── STEP 1: VERIFY ── */}
+      {step==='verify'&&(
+        <div className="g2">
+          <div>
+            <div className="card">
+              <div className="ct">Scan Employee QR Card</div>
+              {empCam?(
+                <CamScanner onScan={verifyEmployee} onClose={()=>setEmpCam(false)} label="Scan employee QR card..."/>
+              ):(
+                <div className="scanbox">
+                  <div className="scan-icon">🪪</div>
+                  <div className="scan-hint">Scan the employee's physical QR card to verify them</div>
+                  <input className="scan-input" value={empManual} onChange={e=>setEmpManual(e.target.value)} onKeyDown={e=>e.key==='Enter'&&verifyEmployee(empManual)} placeholder="Roll No / QR Value" autoFocus/>
+                  <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>setEmpCam(true)}>📷 Camera</button>
+                    <button className="btn btn-success btn-sm" onClick={()=>verifyEmployee(empManual)} disabled={!empManual.trim()}>Verify →</button>
+                  </div>
                 </div>
-              ))}
+              )}
+            </div>
+          </div>
+          <div>
+            <div className="card">
+              <div className="ct">Or select from list</div>
+              <div className="sbar"><input value={empSearch} onChange={e=>setEmpSearch(e.target.value)} placeholder="Search employee..."/></div>
+              <div style={{maxHeight:320,overflowY:'auto'}}>
+                {fEmps.map(e=>(
+                  <div key={e.id} className="erow" onClick={()=>verifyEmployee(e.rollNo)}>
+                    <div className="avt avt-y">{e.name.charAt(0)}</div>
+                    <div className="ei"><div className="en">{e.name}</div><div className="er">{e.rollNo}</div></div>
+                    <div><div className="etok" style={{fontSize:13}}>{e.totalTokens||0}</div><div className="etl">tokens</div></div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
+      )}
 
-        {/* RIGHT: Scan zone */}
-        <div>
-          {selectedEmp?(
-            <>
-              <div className={`card ${cardFlash?'flash-success':''}`} style={{marginBottom:14,borderColor:'var(--accent2)'}}>
-                <div className="ct">Active Employee</div>
-                <div className="ecard" style={{cursor:'default',marginBottom:0}}>
-                  <div className="avt sup">{selectedEmp.name.charAt(0)}</div>
-                  <div className="ei"><div className="en">{selectedEmp.name}</div><div className="er">{selectedEmp.rollNo} · {selectedEmp.department}</div></div>
-                  <div><div className="etok">{selectedEmp.totalTokens||0}</div><div className="etl">TOKENS</div></div>
+      {/* ── STEP 2: ASSIGN TOKENS ── */}
+      {step==='tokens'&&verifiedEmp&&(
+        <div className="g2">
+          <div>
+            {/* Verified employee card */}
+            <div className="card mb14" style={{borderColor:'var(--accent2)'}}>
+              <div className="verify-badge vb-success pop" style={{marginBottom:14}}>✓ Employee Verified</div>
+              <div className="erow" style={{cursor:'default'}}>
+                <div className="avt avt-g">{verifiedEmp.name.charAt(0)}</div>
+                <div className="ei">
+                  <div className="en">{verifiedEmp.name}</div>
+                  <div className="er">{verifiedEmp.rollNo} · {verifiedEmp.department}</div>
+                  {verifiedEmp.mobile&&<div className="er">📞 {verifiedEmp.mobile}</div>}
                 </div>
+                <div><div className="etok">{verifiedEmp.totalTokens||0}</div><div className="etl">tokens</div></div>
               </div>
-
-              {/* Camera scanner */}
-              {cameraOpen?(
-                <CameraScanner
-                  onScan={(val)=>processToken(val)}
-                  onClose={()=>setCameraOpen(false)}
-                />
-              ):(
-                <div className={`scanbox ${manualInput?'live':''}`}>
-                  <div className="sicon">📷</div>
-                  <p>Scan QR with camera or type token ID. Merges with <strong>{selectedEmp.rollNo}</strong></p>
-                  <input
-                    ref={scanInputRef}
-                    className="scan-input"
-                    value={manualInput}
-                    onChange={e=>setManualInput(e.target.value)}
-                    onKeyDown={e=>e.key==='Enter'&&processToken(manualInput)}
-                    placeholder="TKN000001"
-                    autoFocus
-                  />
-                  <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12,flexWrap:'wrap'}}>
-                    <button className="bsm ok" onClick={()=>processToken(manualInput)} disabled={!manualInput.trim()}>✓ ASSIGN TOKEN</button>
-                    <button className="bsm" onClick={()=>setCameraOpen(true)}>📷 OPEN CAMERA</button>
-                  </div>
-                </div>
-              )}
-
-              {/* Session log */}
-              {sessionTokens.length>0&&(
-                <div className="card" style={{marginTop:14}}>
-                  <div className="sh">
-                    <div className="ct" style={{margin:0}}>Session Log</div>
-                    <span className="badge by">{sessionTokens.length} TOKENS</span>
-                  </div>
-                  <div style={{maxHeight:220,overflowY:'auto'}}>
-                    {[...sessionTokens].reverse().map((t,i)=>(
-                      <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:'1px solid var(--border)',fontSize:12}}>
-                        <span className="mc" style={{color:'var(--accent2)'}}>{t.tokenId}</span>
-                        <span style={{color:'var(--muted)',fontSize:11,flex:1,margin:'0 8px'}}>→ {t.empName}</span>
-                        <span style={{color:'var(--muted)',fontSize:10}}>{t.at}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{marginTop:10,fontSize:10,color:'var(--muted)',fontFamily:'var(--mono)'}}>
-                    SESSION: {sessionId}
-                  </div>
-                </div>
-              )}
-            </>
-          ):(
-            <div className="card" style={{textAlign:'center',padding:48}}>
-              <div style={{fontSize:40,marginBottom:14}}>👈</div>
-              <div style={{color:'var(--muted)',fontSize:13}}>Select an employee from the left to start assigning tokens</div>
             </div>
-          )}
+
+            {/* Scan token */}
+            <div className="card">
+              <div className="ct">Scan Token QR</div>
+              {tokCam?(
+                <CamScanner onScan={assignToken} onClose={()=>setTokCam(false)} label="Scan token QR code..."/>
+              ):(
+                <div className={`scanbox ${tokManual?'live':''}`}>
+                  <div className="scan-icon">🎟️</div>
+                  <div className="scan-hint">Merging token with <strong style={{color:'var(--accent2)'}}>{verifiedEmp.rollNo}</strong></div>
+                  <input ref={tokInputRef} className="scan-input" value={tokManual} onChange={e=>setTokManual(e.target.value)} onKeyDown={e=>e.key==='Enter'&&assignToken(tokManual)} placeholder="TKN000001" autoFocus/>
+                  <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>setTokCam(true)}>📷 Camera</button>
+                    <button className="btn btn-success btn-sm" onClick={()=>assignToken(tokManual)} disabled={tokBusy||!tokManual.trim()}>
+                      {tokBusy?'Assigning...':'✓ Assign Token'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Session log */}
+          <div>
+            <div className="card">
+              <div className="sh">
+                <div className="ct" style={{margin:0}}>Session Log</div>
+                <span className="badge b-yellow">{sessionTokens.length} assigned</span>
+              </div>
+              {sessionTokens.length===0?(
+                <div style={{textAlign:'center',padding:32,color:'var(--muted)',fontSize:13}}>No tokens assigned yet this session</div>
+              ):(
+                <div style={{maxHeight:360,overflowY:'auto'}}>
+                  {[...sessionTokens].reverse().map((t,i)=>(
+                    <div key={i} className="slog-item">
+                      <span className="mc" style={{color:'var(--accent2)'}}>{t.tokenId}</span>
+                      <span style={{color:'var(--muted)',fontSize:10}}>{t.at}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {sessionTokens.length>0&&(
+                <div style={{marginTop:12,fontSize:10,color:'var(--muted)',fontFamily:'var(--mono)'}}>
+                  Session: {sessionId}<br/>
+                  All tokens merged with {verifiedEmp.rollNo}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
-// ═══════════════════════════════════════════
-// APP
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// APP ROOT
+// ═══════════════════════════════════════════════════
 function App(){
   const[user,setUser]=useState(null);
   const toast=useToast();
   return(
     <div className="app">
-      {!user?(
-        <Login onLogin={setUser}/>
-      ):(
+      {!user?<Login onLogin={setUser}/>:(
         <>
           <div className="topbar">
-            <div className="brand">⬡ TOKENPAY</div>
-            <div className="topbar-right">
-              <span style={{fontSize:12,color:'var(--muted)'}}>{user.name}</span>
-              <span className={`role-badge ${user.role}`}>{user.role.toUpperCase()}</span>
-              <button className="btn-logout" onClick={()=>setUser(null)}>LOGOUT</button>
+            <div className="brand"><div className="brand-dot"/>TOKENPAY</div>
+            <div className="topbar-r">
+              <span style={{fontSize:12,color:'var(--muted2)'}}>{user.name}</span>
+              <span className={`rbadge ${user.role}`}>{user.role.toUpperCase()}</span>
+              <button className="btn-out" onClick={()=>setUser(null)}>LOGOUT</button>
             </div>
           </div>
           <div className="main">
-            <div className="demo-banner">
-              ⚡ DEMO MODE — Data resets on refresh. See <code>firebase-setup.html</code> to connect real database. Camera QR scanning requires HTTPS.
-            </div>
-            {user.role==='admin'?(
-              <AdminDashboard user={user} toast={toast}/>
-            ):(
-              <SupervisorPanel user={user} toast={toast}/>
-            )}
+            <div className="demo-banner">⚡ DEMO MODE — Connect Firebase to persist data. Camera QR scanning needs HTTPS.</div>
+            {user.role==='admin'
+              ?<AdminDashboard user={user} toast={toast}/>
+              :<SupervisorPanel user={user} toast={toast}/>
+            }
           </div>
         </>
       )}
       <div className="toast-wrap">
-        {toast.toasts.map(t=>(
-          <div key={t.id} className={`toast ${t.type}`}>{t.msg}</div>
-        ))}
+        {toast.toasts.map(t=><div key={t.id} className={`toast ${t.type}`}>{t.msg}</div>)}
       </div>
     </div>
   );
