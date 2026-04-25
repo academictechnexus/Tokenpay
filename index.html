@@ -11,24 +11,20 @@
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 
-<!-- ═══════════════════════════════════════════════════════════
-     FIREBASE — uncomment after setup
-     ══════════════════════════════════════════════════════════ -->
-<!--
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script>
   firebase.initializeApp({
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+apiKey: "AIzaSyARLbZ_SxgLEMG3OP4Q-IIprIk8FK9-hAM",
+  authDomain: "token-pay-demo.firebaseapp.com",
+  projectId: "token-pay-demo",
+  storageBucket: "token-pay-demo.firebasestorage.app",
+  messagingSenderId: "985204049286",
+  appId: "1:985204049286:web:73adf84187a7bcec0e9807"
   });
   const firestore = firebase.firestore();
 </script>
--->
+
 
 <style>
 :root {
@@ -263,82 +259,156 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN') : '—';
 // DB API (demo — swap with Firestore in production)
 // ═══════════════════════════════════════════════════
 const db = {
-  login:(u,p)=>{
-    if(u==='admin'&&p==='admin123') return Promise.resolve({role:'admin',name:'Administrator',id:'ADMIN'});
-    const s=DB.supervisors.find(s=>s.username===u&&s.password===p&&s.active);
-    if(s) return Promise.resolve({role:'supervisor',name:s.name,id:s.id,qrId:s.qrId});
-    return Promise.reject(new Error('Invalid credentials'));
+  login: async (u, p) => {
+    if (u === 'admin' && p === 'admin123')
+      return { role: 'admin', name: 'Administrator', id: 'ADMIN' };
+    const snap = await firestore.collection('supervisors')
+      .where('username', '==', u).where('password', '==', p).where('active', '==', true).get();
+    if (snap.empty) throw new Error('Invalid credentials');
+    const s = snap.docs[0].data();
+    return { role: 'supervisor', name: s.name, id: s.id, qrId: s.qrId };
   },
-  loginByQR:(qrId)=>{
-    const s=DB.supervisors.find(s=>s.qrId===qrId&&s.active);
-    if(s) return Promise.resolve({role:'supervisor',name:s.name,id:s.id,qrId:s.qrId});
-    return Promise.reject(new Error('Supervisor QR not recognised'));
-  },
-  getEmployees:()=>Promise.resolve([...DB.employees]),
-  getEmployeeById:(id)=>Promise.resolve(DB.employees.find(e=>e.id===id.trim())||null),
-  addEmployee:(emp)=>{DB.employees.push(emp);return Promise.resolve();},
-  removeEmployee:(id)=>{DB.employees=DB.employees.filter(e=>e.id!==id);return Promise.resolve();},
-  getTokens:()=>Promise.resolve([...DB.tokens]),
-  getToken:(id)=>Promise.resolve(DB.tokens.find(t=>t.id===id)||null),
-  // Assign token: validates supervisor QR cannot receive tokens
-  assignToken:(tokenId,empId,supId,supName,sessionId)=>{
-    // Block if scanned value is a supervisor QR
-    if(DB.supervisors.find(s=>s.qrId===empId||s.id===empId))
-      return Promise.reject(new Error('❌ Supervisor ID detected — cannot assign token'));
-    const t=DB.tokens.find(t=>t.id===tokenId);
-    if(!t) return Promise.reject(new Error('Token not found: '+tokenId));
-    if(t.lockedDate===today()) return Promise.reject(new Error(`❌ Token already used today`));
-    if(t.assignedTo&&t.lockedDate!==today()) return Promise.reject(new Error('Token locked — reset by admin required'));
-    t.assignedTo=empId;t.assignedAt=nowTs();
-    t.assignedBy=supName;t.assignedBySup=supId;t.sessionId=sessionId;t.lockedDate=today();
-    const e=DB.employees.find(e=>e.id===empId);
-    if(e){e.tokens.push(tokenId);e.totalTokens=(e.totalTokens||0)+1;}
-    return Promise.resolve();
-  },
-  // Payout: saves transaction, resets employee tokens
-  payEmployee:(empId)=>{
-    const e=DB.employees.find(e=>e.id===empId);
-    if(!e) return Promise.reject(new Error('Employee not found'));
-    const tokensPaid=e.totalTokens||0;
-    const amount=tokensPaid*TOKEN_VALUE;
-    const txn={
-      id:'TXN'+String(Date.now()).slice(-8),
-      employeeId:empId,employeeName:e.name,
-      tokensPaid,amount,date:today(),timestamp:nowTs()
-    };
-    DB.transactions.push(txn);
-    // release tokens assigned to this employee
-    DB.tokens.forEach(t=>{if(t.assignedTo===empId){t.assignedTo=null;t.assignedAt=null;t.assignedBy=null;t.assignedBySup=null;t.sessionId=null;t.lockedDate=null;}});
-    e.paidTokens=(e.paidTokens||0)+tokensPaid;
-    e.tokens=[];e.totalTokens=0;
-    return Promise.resolve({tokensPaid,amount});
-  },
-  getSupervisors:()=>Promise.resolve([...DB.supervisors]),
-  addSupervisor:(s)=>{DB.supervisors.push(s);return Promise.resolve();},
-  removeSupervisor:(id)=>{DB.supervisors=DB.supervisors.filter(s=>s.id!==id);return Promise.resolve();},
-  getTransactions:()=>Promise.resolve([...DB.transactions]),
-  // Universal scan — identify any QR
-  universalScan:async(qr)=>{
-    const val=qr.trim().toUpperCase();
-    // Employee?
-    const emp=DB.employees.find(e=>e.id===val);
-    if(emp) return{type:'employee',data:{...emp}};
-    // Supervisor?
-    const sup=DB.supervisors.find(s=>s.qrId===val||s.id===val);
-    if(sup){
-      const assigned=DB.tokens.filter(t=>t.assignedBySup===sup.id).length;
-      return{type:'supervisor',data:{...sup,totalAssigned:assigned}};
-    }
-    // Token?
-    const tok=DB.tokens.find(t=>t.id===val);
-    if(tok){
-      const empData=tok.assignedTo?DB.employees.find(e=>e.id===tok.assignedTo):null;
-      return{type:'token',data:{...tok,employee:empData?{...empData}:null}};
-    }
-    return{type:'unknown',data:{qr:val}};
-  },
-};
 
+  loginByQR: async (qrId) => {
+    const snap = await firestore.collection('supervisors')
+      .where('qrId', '==', qrId).where('active', '==', true).get();
+    if (snap.empty) throw new Error('Supervisor QR not recognised');
+    const s = snap.docs[0].data();
+    return { role: 'supervisor', name: s.name, id: s.id, qrId: s.qrId };
+  },
+
+  getEmployees: async () => {
+    const snap = await firestore.collection('employees').get();
+    return snap.docs.map(d => d.data());
+  },
+
+  getEmployeeById: async (id) => {
+    const doc = await firestore.collection('employees').doc(id).get();
+    return doc.exists ? doc.data() : null;
+  },
+
+  addEmployee: async (emp) => {
+    await firestore.collection('employees').doc(emp.id).set(emp);
+  },
+
+  removeEmployee: async (id) => {
+    await firestore.collection('employees').doc(id).delete();
+  },
+
+  getTokens: async () => {
+    const snap = await firestore.collection('tokens').get();
+    return snap.docs.map(d => d.data());
+  },
+
+  getToken: async (id) => {
+    const doc = await firestore.collection('tokens').doc(id).get();
+    return doc.exists ? doc.data() : null;
+  },
+
+  assignToken: async (tokenId, empId, supId, supName, sessionId) => {
+    const supSnap = await firestore.collection('supervisors')
+      .where('qrId', '==', empId).get();
+    if (!supSnap.empty) throw new Error('❌ Supervisor ID detected — cannot assign token');
+
+    const tokRef = firestore.collection('tokens').doc(tokenId);
+    const tokDoc = await tokRef.get();
+    if (!tokDoc.exists) throw new Error('Token not found: ' + tokenId);
+    const t = tokDoc.data();
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (t.lockedDate === todayStr) throw new Error('❌ Token already used today');
+
+    await tokRef.set({
+      id: tokenId, assignedTo: empId, assignedAt: new Date().toISOString(),
+      assignedBy: supName, assignedBySup: supId,
+      sessionId, lockedDate: todayStr
+    });
+
+    const empRef = firestore.collection('employees').doc(empId);
+    await empRef.update({
+      tokens: firebase.firestore.FieldValue.arrayUnion(tokenId),
+      totalTokens: firebase.firestore.FieldValue.increment(1)
+    });
+  },
+
+  payEmployee: async (empId) => {
+    const empRef = firestore.collection('employees').doc(empId);
+    const empDoc = await empRef.get();
+    if (!empDoc.exists) throw new Error('Employee not found');
+    const e = empDoc.data();
+    const tokensPaid = e.totalTokens || 0;
+    const amount = tokensPaid * 100;
+
+    // Save transaction
+    const txnId = 'TXN' + Date.now();
+    await firestore.collection('transactions').doc(txnId).set({
+      id: txnId, employeeId: empId, employeeName: e.name,
+      tokensPaid, amount, date: new Date().toISOString().split('T')[0],
+      timestamp: new Date().toISOString()
+    });
+
+    // Release tokens
+    const tokSnap = await firestore.collection('tokens')
+      .where('assignedTo', '==', empId).get();
+    const batch = firestore.batch();
+    tokSnap.docs.forEach(d => batch.update(d.ref, {
+      assignedTo: null, assignedAt: null, assignedBy: null,
+      assignedBySup: null, sessionId: null, lockedDate: null
+    }));
+    batch.update(empRef, {
+      tokens: [], totalTokens: 0,
+      paidTokens: firebase.firestore.FieldValue.increment(tokensPaid)
+    });
+    await batch.commit();
+    return { tokensPaid, amount };
+  },
+
+  getSupervisors: async () => {
+    const snap = await firestore.collection('supervisors').get();
+    return snap.docs.map(d => d.data());
+  },
+
+  addSupervisor: async (s) => {
+    await firestore.collection('supervisors').doc(s.id).set(s);
+  },
+
+  removeSupervisor: async (id) => {
+    await firestore.collection('supervisors').doc(id).delete();
+  },
+
+  getTransactions: async () => {
+    const snap = await firestore.collection('transactions')
+      .orderBy('timestamp', 'desc').get();
+    return snap.docs.map(d => d.data());
+  },
+
+  universalScan: async (qr) => {
+    const val = qr.trim().toUpperCase();
+    const empDoc = await firestore.collection('employees').doc(val).get();
+    if (empDoc.exists) return { type: 'employee', data: empDoc.data() };
+
+    const supSnap = await firestore.collection('supervisors')
+      .where('qrId', '==', val).get();
+    if (!supSnap.empty) {
+      const s = supSnap.docs[0].data();
+      const tokSnap = await firestore.collection('tokens')
+        .where('assignedBySup', '==', s.id).get();
+      return { type: 'supervisor', data: { ...s, totalAssigned: tokSnap.size } };
+    }
+
+    const tokDoc = await firestore.collection('tokens').doc(val).get();
+    if (tokDoc.exists) {
+      const t = tokDoc.data();
+      let employee = null;
+      if (t.assignedTo) {
+        const ed = await firestore.collection('employees').doc(t.assignedTo).get();
+        if (ed.exists) employee = ed.data();
+      }
+      return { type: 'token', data: { ...t, employee } };
+    }
+
+    return { type: 'unknown', data: { qr: val } };
+  }
+};
 // ═══════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════
