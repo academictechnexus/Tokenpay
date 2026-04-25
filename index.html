@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>TokenPay v3</title>
+<title>TokenPay v4</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -39,6 +39,7 @@
   --text:#eeeef8; --muted:#6868a0; --muted2:#9090c0;
   --mono:'Space Mono',monospace; --sans:'DM Sans',sans-serif;
   --r:8px; --r2:12px;
+  --token-value:100;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
@@ -57,7 +58,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 .rbadge.supervisor{border-color:var(--accent2);color:var(--accent2)}
 .btn-out{font-family:var(--mono);font-size:9px;padding:4px 10px;border-radius:4px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s}
 .btn-out:hover{border-color:var(--danger);color:var(--danger)}
-.main{flex:1;padding:22px 20px;max-width:1140px;margin:0 auto;width:100%}
+.main{flex:1;padding:22px 20px;max-width:1200px;margin:0 auto;width:100%}
 
 /* ── LOGIN ── */
 .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 0%,#1a1a30 0%,var(--bg) 70%)}
@@ -87,6 +88,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 .btn-success:hover{background:var(--accent2);color:#07070d}
 .btn-danger{background:transparent;border:1px solid var(--border2);color:var(--muted)}
 .btn-danger:hover{border-color:var(--danger);color:var(--danger)}
+.btn-warn{background:transparent;border:1px solid var(--warn);color:var(--warn)}
+.btn-warn:hover{background:var(--warn);color:#07070d}
 .btn-sm{font-size:10px;padding:6px 12px}
 .btn-full{width:100%;justify-content:center}
 
@@ -164,6 +167,7 @@ tbody tr:last-child td{border-bottom:none}
 .vb-success{background:rgba(61,232,160,.1);border:1px solid var(--accent2);color:var(--accent2)}
 .vb-error{background:rgba(240,79,94,.1);border:1px solid var(--danger);color:var(--danger)}
 .vb-info{background:rgba(245,200,66,.1);border:1px solid var(--accent);color:var(--accent)}
+.vb-warn{background:rgba(240,147,58,.1);border:1px solid var(--warn);color:var(--warn)}
 
 /* ── MODAL ── */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
@@ -204,6 +208,14 @@ tbody tr:last-child td{border-bottom:none}
 .divider{border:none;border-top:1px solid var(--border);margin:16px 0}
 .err-msg{font-size:11px;color:var(--danger);margin-top:8px;text-align:center}
 
+/* ── PAYOUT CARD ── */
+.payout-box{background:linear-gradient(135deg,rgba(61,232,160,.05),rgba(245,200,66,.05));border:1px solid var(--accent2);border-radius:var(--r2);padding:20px;text-align:center}
+.payout-amount{font-family:var(--mono);font-size:36px;color:var(--accent2);line-height:1;margin:8px 0}
+
+/* ── REPORT SECTION ── */
+.report-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.report-date{font-family:var(--mono);font-size:10px;color:var(--muted)}
+
 @media(max-width:640px){
   .g2,.g3,.g4,.fg-row,.fg-row3{grid-template-columns:1fr}
   .main{padding:14px}
@@ -216,29 +228,36 @@ tbody tr:last-child td{border-bottom:none}
 <script type="text/babel">
 const {useState,useEffect,useRef,useCallback} = React;
 
+const TOKEN_VALUE = 100; // ₹ per token
+
 // ═══════════════════════════════════════════════════
-// DEMO DATA
+// DEMO DATA — Uses EMP001 format as per requirements
 // ═══════════════════════════════════════════════════
 let DB = (() => {
   const employees = [
-    {id:'EMP001',name:'Arun Kumar',rollNo:'ROLL0001',mobile:'9876543210',department:'Production',tokens:[],totalTokens:5,paidTokens:42,createdAt:'2024-01-10'},
-    {id:'EMP002',name:'Priya Sharma',rollNo:'ROLL0002',mobile:'9123456789',department:'Packing',tokens:[],totalTokens:3,paidTokens:38,createdAt:'2024-01-10'},
-    {id:'EMP003',name:'Karthik R',rollNo:'ROLL0003',mobile:'',department:'Quality',tokens:[],totalTokens:7,paidTokens:55,createdAt:'2024-01-11'},
-    {id:'EMP004',name:'Deepa M',rollNo:'ROLL0004',mobile:'9988776655',department:'Warehouse',tokens:[],totalTokens:2,paidTokens:30,createdAt:'2024-01-12'},
-    {id:'EMP005',name:'Suresh P',rollNo:'ROLL0005',mobile:'',department:'Maintenance',tokens:[],totalTokens:9,paidTokens:61,createdAt:'2024-01-12'},
+    {id:'EMP001',name:'Arun Kumar',mobile:'9876543210',tokens:[],totalTokens:5,paidTokens:42,createdAt:'2026-01-10'},
+    {id:'EMP002',name:'Priya Sharma',mobile:'9123456789',tokens:[],totalTokens:3,paidTokens:38,createdAt:'2026-01-10'},
+    {id:'EMP003',name:'Karthik R',mobile:'',tokens:[],totalTokens:7,paidTokens:55,createdAt:'2026-01-11'},
+    {id:'EMP004',name:'Deepa M',mobile:'9988776655',tokens:[],totalTokens:2,paidTokens:30,createdAt:'2026-01-12'},
+    {id:'EMP005',name:'Suresh P',mobile:'',tokens:[],totalTokens:9,paidTokens:61,createdAt:'2026-01-12'},
   ];
-  const tokens = Array.from({length:100},(_,i)=>({
+  const tokens = Array.from({length:200},(_,i)=>({
     id:`TKN${String(i+1).padStart(6,'0')}`,
-    assignedTo:null,assignedRoll:null,assignedAt:null,assignedBy:null,sessionId:null,lockedDate:null
+    assignedTo:null,assignedAt:null,assignedBy:null,assignedBySup:null,sessionId:null,lockedDate:null
   }));
   const supervisors = [
-    {id:'SUP001',name:'Supervisor Alpha',username:'sup1',password:'pass1',qrId:'SUPQR001',active:true},
-    {id:'SUP002',name:'Supervisor Beta',username:'sup2',password:'pass2',qrId:'SUPQR002',active:true},
+    {id:'SUP001',name:'Supervisor Alpha',username:'sup1',password:'pass1',qrId:'SUP001',active:true},
+    {id:'SUP002',name:'Supervisor Beta',username:'sup2',password:'pass2',qrId:'SUP002',active:true},
   ];
-  return {employees,tokens,supervisors};
+  // transactions: {id, employeeId, employeeName, tokensPaid, amount, date, timestamp}
+  const transactions = [];
+  return {employees,tokens,supervisors,transactions};
 })();
 
 const today = () => new Date().toISOString().split('T')[0];
+const nowTs = () => new Date().toISOString();
+const fmtTime = (ts) => ts ? new Date(ts).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN') : '—';
 
 // ═══════════════════════════════════════════════════
 // DB API (demo — swap with Firestore in production)
@@ -246,7 +265,7 @@ const today = () => new Date().toISOString().split('T')[0];
 const db = {
   login:(u,p)=>{
     if(u==='admin'&&p==='admin123') return Promise.resolve({role:'admin',name:'Administrator',id:'ADMIN'});
-    const s=DB.supervisors.find(s=>s.username===u&&s.password===p);
+    const s=DB.supervisors.find(s=>s.username===u&&s.password===p&&s.active);
     if(s) return Promise.resolve({role:'supervisor',name:s.name,id:s.id,qrId:s.qrId});
     return Promise.reject(new Error('Invalid credentials'));
   },
@@ -256,34 +275,68 @@ const db = {
     return Promise.reject(new Error('Supervisor QR not recognised'));
   },
   getEmployees:()=>Promise.resolve([...DB.employees]),
-  getEmployeeByRoll:(rollNo)=>Promise.resolve(DB.employees.find(e=>e.rollNo===rollNo.trim())||null),
-  getEmployeeById:(id)=>Promise.resolve(DB.employees.find(e=>e.id===id)||null),
+  getEmployeeById:(id)=>Promise.resolve(DB.employees.find(e=>e.id===id.trim())||null),
   addEmployee:(emp)=>{DB.employees.push(emp);return Promise.resolve();},
   removeEmployee:(id)=>{DB.employees=DB.employees.filter(e=>e.id!==id);return Promise.resolve();},
   getTokens:()=>Promise.resolve([...DB.tokens]),
   getToken:(id)=>Promise.resolve(DB.tokens.find(t=>t.id===id)||null),
-  assignToken:(tokenId,empId,rollNo,supName,sessionId)=>{
+  // Assign token: validates supervisor QR cannot receive tokens
+  assignToken:(tokenId,empId,supId,supName,sessionId)=>{
+    // Block if scanned value is a supervisor QR
+    if(DB.supervisors.find(s=>s.qrId===empId||s.id===empId))
+      return Promise.reject(new Error('❌ Supervisor ID detected — cannot assign token'));
     const t=DB.tokens.find(t=>t.id===tokenId);
-    if(!t) return Promise.reject(new Error('Token not found'));
-    if(t.assignedTo&&t.lockedDate===today()) return Promise.reject(new Error(`Token already used today by ${t.assignedTo}`));
+    if(!t) return Promise.reject(new Error('Token not found: '+tokenId));
+    if(t.lockedDate===today()) return Promise.reject(new Error(`❌ Token already used today`));
     if(t.assignedTo&&t.lockedDate!==today()) return Promise.reject(new Error('Token locked — reset by admin required'));
-    t.assignedTo=empId;t.assignedRoll=rollNo;t.assignedAt=new Date().toISOString();
-    t.assignedBy=supName;t.sessionId=sessionId;t.lockedDate=today();
+    t.assignedTo=empId;t.assignedAt=nowTs();
+    t.assignedBy=supName;t.assignedBySup=supId;t.sessionId=sessionId;t.lockedDate=today();
     const e=DB.employees.find(e=>e.id===empId);
     if(e){e.tokens.push(tokenId);e.totalTokens=(e.totalTokens||0)+1;}
     return Promise.resolve();
   },
-  resetEmployee:(id)=>{
-    const e=DB.employees.find(e=>e.id===id);
-    if(e){
-      DB.tokens.forEach(t=>{if(t.assignedTo===id){t.assignedTo=null;t.assignedRoll=null;t.assignedAt=null;t.assignedBy=null;t.sessionId=null;t.lockedDate=null;}});
-      e.paidTokens=(e.paidTokens||0)+e.totalTokens;e.tokens=[];e.totalTokens=0;
-    }
-    return Promise.resolve();
+  // Payout: saves transaction, resets employee tokens
+  payEmployee:(empId)=>{
+    const e=DB.employees.find(e=>e.id===empId);
+    if(!e) return Promise.reject(new Error('Employee not found'));
+    const tokensPaid=e.totalTokens||0;
+    const amount=tokensPaid*TOKEN_VALUE;
+    const txn={
+      id:'TXN'+String(Date.now()).slice(-8),
+      employeeId:empId,employeeName:e.name,
+      tokensPaid,amount,date:today(),timestamp:nowTs()
+    };
+    DB.transactions.push(txn);
+    // release tokens assigned to this employee
+    DB.tokens.forEach(t=>{if(t.assignedTo===empId){t.assignedTo=null;t.assignedAt=null;t.assignedBy=null;t.assignedBySup=null;t.sessionId=null;t.lockedDate=null;}});
+    e.paidTokens=(e.paidTokens||0)+tokensPaid;
+    e.tokens=[];e.totalTokens=0;
+    return Promise.resolve({tokensPaid,amount});
   },
   getSupervisors:()=>Promise.resolve([...DB.supervisors]),
   addSupervisor:(s)=>{DB.supervisors.push(s);return Promise.resolve();},
   removeSupervisor:(id)=>{DB.supervisors=DB.supervisors.filter(s=>s.id!==id);return Promise.resolve();},
+  getTransactions:()=>Promise.resolve([...DB.transactions]),
+  // Universal scan — identify any QR
+  universalScan:async(qr)=>{
+    const val=qr.trim().toUpperCase();
+    // Employee?
+    const emp=DB.employees.find(e=>e.id===val);
+    if(emp) return{type:'employee',data:{...emp}};
+    // Supervisor?
+    const sup=DB.supervisors.find(s=>s.qrId===val||s.id===val);
+    if(sup){
+      const assigned=DB.tokens.filter(t=>t.assignedBySup===sup.id).length;
+      return{type:'supervisor',data:{...sup,totalAssigned:assigned}};
+    }
+    // Token?
+    const tok=DB.tokens.find(t=>t.id===val);
+    if(tok){
+      const empData=tok.assignedTo?DB.employees.find(e=>e.id===tok.assignedTo):null;
+      return{type:'token',data:{...tok,employee:empData?{...empData}:null}};
+    }
+    return{type:'unknown',data:{qr:val}};
+  },
 };
 
 // ═══════════════════════════════════════════════════
@@ -361,7 +414,7 @@ function Login({onLogin}){
     <div className="login-wrap">
       <div className="login-card">
         <div className="login-logo">⬡ TOKENPAY</div>
-        <div className="login-sub">Workforce Token System v3</div>
+        <div className="login-sub">Workforce Token System v4</div>
         {camOpen?(
           <CamScanner onScan={handleQR} onClose={()=>setCamOpen(false)} label="Scan supervisor QR ID card..."/>
         ):(
@@ -373,44 +426,39 @@ function Login({onLogin}){
           </>
         )}
         {err&&<div className="err-msg">{err}</div>}
-        <div style={{marginTop:18,fontSize:10,color:'var(--muted)',textAlign:'center',fontFamily:'var(--mono)'}}>DEMO · admin/admin123 · sup1/pass1</div>
+        <div style={{marginTop:18,fontSize:10,color:'var(--muted)',textAlign:'center',fontFamily:'var(--mono)'}}>DEMO · admin/admin123 · sup1/pass1 · sup2/pass2</div>
       </div>
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════
-// ADMIN — ADD EMPLOYEE MODAL (scan QR then fill form)
+// ADD EMPLOYEE MODAL
 // ═══════════════════════════════════════════════════
 function AddEmployeeModal({onClose,onSaved,toast}){
-  const[step,setStep]=useState('scan'); // scan | form
-  const[scannedQR,setScannedQR]=useState('');
-  const[camOpen,setCamOpen]=useState(false);
-  const[manualQR,setManualQR]=useState('');
-  const[form,setForm]=useState({name:'',rollNo:'',mobile:'',department:''});
+  const[form,setForm]=useState({id:'',name:'',mobile:''});
   const[busy,setBusy]=useState(false);
+  const[camOpen,setCamOpen]=useState(false);
 
   const handleQRScan=async(val)=>{
     setCamOpen(false);
-    const qr=val.trim();
-    // check if already registered
-    const existing=await db.getEmployeeByRoll(qr);
-    if(existing){toast.show('This QR is already registered to '+existing.name,'error');return;}
-    setScannedQR(qr);setForm(f=>({...f,rollNo:qr}));setStep('form');
-  };
-
-  const handleManual=async()=>{
-    if(!manualQR.trim()){toast.show('Enter QR value','error');return;}
-    handleQRScan(manualQR.trim());
+    const qr=val.trim().toUpperCase();
+    if(DB.supervisors.find(s=>s.qrId===qr||s.id===qr)){toast.show('That QR belongs to a supervisor!','error');return;}
+    const existing=await db.getEmployeeById(qr);
+    if(existing){toast.show('Employee already registered: '+existing.name,'error');return;}
+    setForm(f=>({...f,id:qr}));
   };
 
   const save=async()=>{
-    if(!form.name||!form.rollNo){toast.show('Name and Roll No required','error');return;}
+    if(!form.name||!form.id){toast.show('Name and Employee ID required','error');return;}
+    if(!/^EMP\d+$/i.test(form.id)){toast.show('Employee ID must be EMP001 format','error');return;}
+    const idUp=form.id.toUpperCase();
+    const exist=await db.getEmployeeById(idUp);
+    if(exist){toast.show('Employee ID already taken','error');return;}
     setBusy(true);
     try{
-      const id=`EMP${String(Date.now()).slice(-6)}`;
-      await db.addEmployee({id,name:form.name,rollNo:form.rollNo,mobile:form.mobile,department:form.department,tokens:[],totalTokens:0,paidTokens:0,createdAt:today()});
-      toast.show('Employee registered!','success');
+      await db.addEmployee({id:idUp,name:form.name,mobile:form.mobile,tokens:[],totalTokens:0,paidTokens:0,createdAt:today()});
+      toast.show('Employee registered: '+form.name,'success');
       onSaved();onClose();
     }catch(e){toast.show(e.message,'error');}finally{setBusy(false);}
   };
@@ -419,41 +467,20 @@ function AddEmployeeModal({onClose,onSaved,toast}){
     <div className="overlay" onClick={onClose}>
       <div className="modal" onClick={e=>e.stopPropagation()}>
         <div className="modal-title">Register New Employee</div>
-
-        {step==='scan'&&(
-          <>
-            <div className="verify-badge vb-info">📋 Step 1: Scan or enter the employee QR</div>
-            {camOpen?(
-              <CamScanner onScan={handleQRScan} onClose={()=>setCamOpen(false)} label="Scan employee QR card..."/>
-            ):(
-              <div className="scanbox">
-                <div className="scan-icon">🪪</div>
-                <div className="scan-hint">Scan the physical QR card the employee carries, or enter its value manually.</div>
-                <input className="scan-input" value={manualQR} onChange={e=>setManualQR(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleManual()} placeholder="Scan or type QR value"/>
-                <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}>
-                  <button className="btn btn-ghost btn-sm" onClick={()=>setCamOpen(true)}>📷 Camera</button>
-                  <button className="btn btn-success btn-sm" onClick={handleManual}>→ Continue</button>
-                </div>
-              </div>
-            )}
-          </>
+        <div className="verify-badge vb-info" style={{marginBottom:16}}>Employee ID format: EMP001, EMP002…</div>
+        {camOpen?(
+          <CamScanner onScan={handleQRScan} onClose={()=>setCamOpen(false)} label="Scan employee QR card..."/>
+        ):(
+          <div style={{textAlign:'center',marginBottom:14}}>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setCamOpen(true)}>📷 Scan QR to Auto-fill ID</button>
+          </div>
         )}
-
-        {step==='form'&&(
-          <>
-            <div className="verify-badge vb-success pop">✓ QR Scanned: {scannedQR}</div>
-            <div className="fg"><label>Full Name *</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Employee full name" autoFocus/></div>
-            <div className="fg-row">
-              <div className="fg"><label>Roll / Employee ID *</label><input value={form.rollNo} onChange={e=>setForm({...form,rollNo:e.target.value})} placeholder="Auto-filled from QR"/></div>
-              <div className="fg"><label>Mobile (optional)</label><input value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="10-digit number" maxLength={10}/></div>
-            </div>
-            <div className="fg"><label>Department</label><input value={form.department} onChange={e=>setForm({...form,department:e.target.value})} placeholder="Production, Packing..."/></div>
-          </>
-        )}
-
+        <div className="fg"><label>Employee ID * (EMP001)</label><input value={form.id} onChange={e=>setForm({...form,id:e.target.value.toUpperCase()})} placeholder="EMP001" autoFocus/></div>
+        <div className="fg"><label>Full Name *</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Employee full name"/></div>
+        <div className="fg"><label>Mobile (optional)</label><input value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="10-digit number" maxLength={10}/></div>
         <div className="modal-footer">
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          {step==='form'&&<button className="btn btn-primary" onClick={save} disabled={busy}>{busy?'Saving...':'✓ Save Employee'}</button>}
+          <button className="btn btn-primary" onClick={save} disabled={busy}>{busy?'Saving...':'✓ Save Employee'}</button>
         </div>
       </div>
     </div>
@@ -461,40 +488,30 @@ function AddEmployeeModal({onClose,onSaved,toast}){
 }
 
 // ═══════════════════════════════════════════════════
-// ADMIN — ADD SUPERVISOR MODAL (same flow as employee)
+// ADD SUPERVISOR MODAL
 // ═══════════════════════════════════════════════════
 function AddSupervisorModal({onClose,onSaved,toast}){
-  const[step,setStep]=useState('scan'); // scan | form
-  const[scannedQR,setScannedQR]=useState('');
-  const[camOpen,setCamOpen]=useState(false);
-  const[manualQR,setManualQR]=useState('');
-  const[form,setForm]=useState({name:'',supId:'',mobile:'',username:'',password:''});
+  const[form,setForm]=useState({id:'',name:'',mobile:'',username:'',password:''});
   const[busy,setBusy]=useState(false);
+  const[camOpen,setCamOpen]=useState(false);
 
-  const handleQRScan=async(val)=>{
+  const handleQRScan=(val)=>{
     setCamOpen(false);
-    const qr=val.trim();
-    // check if QR already registered as a supervisor
-    const existing=await db.getSupervisors();
-    if(existing.find(s=>s.qrId===qr)){toast.show('This QR is already registered to a supervisor','error');return;}
-    setScannedQR(qr);
-    setForm(f=>({...f,supId:qr}));
-    setStep('form');
-  };
-
-  const handleManual=()=>{
-    if(!manualQR.trim()){toast.show('Enter QR value','error');return;}
-    handleQRScan(manualQR.trim());
+    const qr=val.trim().toUpperCase();
+    if(DB.employees.find(e=>e.id===qr)){toast.show('That QR belongs to an employee!','error');return;}
+    if(DB.supervisors.find(s=>s.qrId===qr)){toast.show('Supervisor QR already registered','error');return;}
+    setForm(f=>({...f,id:qr}));
   };
 
   const save=async()=>{
-    if(!form.name||!form.username||!form.password){toast.show('Name, username and password are required','error');return;}
-    const existing=await db.getSupervisors();
-    if(existing.find(s=>s.username===form.username)){toast.show('Username already taken','error');return;}
+    if(!form.name||!form.username||!form.password||!form.id){toast.show('All fields required','error');return;}
+    if(!/^SUP\d+$/i.test(form.id)){toast.show('Supervisor ID must be SUP001 format','error');return;}
+    const idUp=form.id.toUpperCase();
+    const exist=DB.supervisors.find(s=>s.username===form.username);
+    if(exist){toast.show('Username already taken','error');return;}
     setBusy(true);
     try{
-      const id=`SUP${String(Date.now()).slice(-6)}`;
-      await db.addSupervisor({id,name:form.name,supId:form.supId,mobile:form.mobile,username:form.username,password:form.password,qrId:scannedQR,active:true});
+      await db.addSupervisor({id:idUp,name:form.name,mobile:form.mobile,username:form.username,password:form.password,qrId:idUp,active:true});
       toast.show('Supervisor registered!','success');
       onSaved();onClose();
     }catch(e){toast.show(e.message,'error');}finally{setBusy(false);}
@@ -504,44 +521,193 @@ function AddSupervisorModal({onClose,onSaved,toast}){
     <div className="overlay" onClick={onClose}>
       <div className="modal" onClick={e=>e.stopPropagation()}>
         <div className="modal-title">Register New Supervisor</div>
+        <div className="verify-badge vb-info" style={{marginBottom:16}}>Supervisor ID format: SUP001, SUP002…</div>
+        {camOpen?(
+          <CamScanner onScan={handleQRScan} onClose={()=>setCamOpen(false)} label="Scan supervisor QR card..."/>
+        ):(
+          <div style={{textAlign:'center',marginBottom:14}}>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setCamOpen(true)}>📷 Scan QR to Auto-fill ID</button>
+          </div>
+        )}
+        <div className="fg"><label>Supervisor ID * (SUP001)</label><input value={form.id} onChange={e=>setForm({...form,id:e.target.value.toUpperCase()})} placeholder="SUP001" autoFocus/></div>
+        <div className="fg"><label>Full Name *</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Supervisor full name"/></div>
+        <div className="fg"><label>Mobile (optional)</label><input value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="10-digit number" maxLength={10}/></div>
+        <div className="fg-row">
+          <div className="fg"><label>Login Username *</label><input value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="sup_name"/></div>
+          <div className="fg"><label>Password *</label><input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Password"/></div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={save} disabled={busy}>{busy?'Saving...':'✓ Save Supervisor'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-        {step==='scan'&&(
-          <>
-            <div className="verify-badge vb-info">📋 Step 1: Scan or enter the supervisor's QR card</div>
-            {camOpen?(
-              <CamScanner onScan={handleQRScan} onClose={()=>setCamOpen(false)} label="Scan supervisor QR card..."/>
-            ):(
-              <div className="scanbox">
-                <div className="scan-icon">🪪</div>
-                <div className="scan-hint">Scan the physical QR card the supervisor carries, or enter its value manually.</div>
-                <input className="scan-input" value={manualQR} onChange={e=>setManualQR(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleManual()} placeholder="Scan or type QR value" autoFocus/>
-                <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}>
-                  <button className="btn btn-ghost btn-sm" onClick={()=>setCamOpen(true)}>📷 Camera</button>
-                  <button className="btn btn-success btn-sm" onClick={handleManual}>→ Continue</button>
+// ═══════════════════════════════════════════════════
+// PAYOUT MODAL
+// ═══════════════════════════════════════════════════
+function PayoutModal({emp,onClose,onDone,toast}){
+  const[busy,setBusy]=useState(false);
+  if(!emp) return null;
+  const amount=(emp.totalTokens||0)*TOKEN_VALUE;
+
+  const doPay=async()=>{
+    setBusy(true);
+    try{
+      const res=await db.payEmployee(emp.id);
+      toast.show(`✓ Paid ₹${res.amount} for ${res.tokensPaid} tokens to ${emp.name}`,'success');
+      onDone();onClose();
+    }catch(e){toast.show(e.message,'error');}finally{setBusy(false);}
+  };
+
+  return(
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-title">💰 Payout & Reset</div>
+        <div className="payout-box">
+          <div style={{fontSize:13,color:'var(--muted)'}}>Employee</div>
+          <div style={{fontSize:18,fontWeight:600,marginTop:4}}>{emp.name}</div>
+          <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--muted)',marginTop:2}}>{emp.id}</div>
+          <hr className="divider" style={{borderColor:'rgba(61,232,160,.2)'}}/>
+          <div style={{fontSize:12,color:'var(--muted)'}}>Current Tokens</div>
+          <div style={{fontFamily:'var(--mono)',fontSize:24,color:'var(--accent)',margin:'4px 0'}}>{emp.totalTokens||0}</div>
+          <div style={{fontSize:12,color:'var(--muted)',marginTop:8}}>Payable Amount</div>
+          <div className="payout-amount">₹{amount.toLocaleString('en-IN')}</div>
+          <div style={{fontSize:10,color:'var(--muted)',fontFamily:'var(--mono)'}}>@ ₹{TOKEN_VALUE}/token</div>
+        </div>
+        <div style={{marginTop:14,padding:12,background:'rgba(240,79,94,.05)',border:'1px solid rgba(240,79,94,.2)',borderRadius:8,fontSize:11,color:'var(--muted)'}}>
+          ⚠️ After payment, token count resets to 0 and this cycle ends.
+        </div>
+        {(emp.totalTokens||0)===0&&<div className="verify-badge vb-warn" style={{marginTop:12}}>No tokens to pay out</div>}
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-warn" onClick={doPay} disabled={busy||(emp.totalTokens||0)===0}>
+            {busy?'Processing...':'PAY & RESET ✓'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
+// UNIVERSAL SCAN MODAL (Admin)
+// ═══════════════════════════════════════════════════
+function UniversalScanModal({onClose,toast}){
+  const[camOpen,setCamOpen]=useState(false);
+  const[manual,setManual]=useState('');
+  const[result,setResult]=useState(null);
+  const[busy,setBusy]=useState(false);
+
+  const doScan=async(raw)=>{
+    setCamOpen(false);setBusy(true);
+    try{
+      const res=await db.universalScan(raw.trim());
+      setResult(res);
+    }catch(e){toast.show(e.message,'error');}
+    finally{setBusy(false);}
+  };
+
+  return(
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" style={{maxWidth:500}} onClick={e=>e.stopPropagation()}>
+        <div className="modal-title">🔍 Universal QR Scanner</div>
+        {camOpen?(
+          <CamScanner onScan={doScan} onClose={()=>setCamOpen(false)} label="Scan any QR..."/>
+        ):(
+          <div className="scanbox">
+            <div className="scan-icon">🔎</div>
+            <div className="scan-hint">Scan Employee, Token, or Supervisor QR — get instant details</div>
+            <input className="scan-input" value={manual} onChange={e=>setManual(e.target.value.toUpperCase())} onKeyDown={e=>e.key==='Enter'&&doScan(manual)} placeholder="EMP001 / TKN000001 / SUP001"/>
+            <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}>
+              <button className="btn btn-ghost btn-sm" onClick={()=>setCamOpen(true)}>📷 Camera</button>
+              <button className="btn btn-success btn-sm" onClick={()=>doScan(manual)} disabled={!manual.trim()||busy}>Search →</button>
+            </div>
+          </div>
+        )}
+
+        {result&&(
+          <div style={{marginTop:16}}>
+            {result.type==='employee'&&(
+              <div>
+                <div className="verify-badge vb-success pop">👤 Employee QR</div>
+                <div className="card">
+                  <div className="erow" style={{cursor:'default'}}>
+                    <div className="avt avt-y">{result.data.name.charAt(0)}</div>
+                    <div className="ei">
+                      <div className="en">{result.data.name}</div>
+                      <div className="er">{result.data.id}</div>
+                      {result.data.mobile&&<div className="er">📞 {result.data.mobile}</div>}
+                    </div>
+                    <div><div className="etok">{result.data.totalTokens||0}</div><div className="etl">pending</div></div>
+                  </div>
+                  <div className="g2" style={{marginTop:12}}>
+                    <div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}>
+                      <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TOTAL PAID</div>
+                      <div style={{fontFamily:'var(--mono)',fontSize:20,color:'var(--muted2)'}}>{result.data.paidTokens||0}</div>
+                    </div>
+                    <div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}>
+                      <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>PAYABLE NOW</div>
+                      <div style={{fontFamily:'var(--mono)',fontSize:20,color:'var(--accent2)'}}>₹{((result.data.totalTokens||0)*TOKEN_VALUE).toLocaleString('en-IN')}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
-          </>
-        )}
-
-        {step==='form'&&(
-          <>
-            <div className="verify-badge vb-success pop">✓ QR Scanned: {scannedQR}</div>
-            <div className="fg"><label>Full Name *</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Supervisor full name" autoFocus/></div>
-            <div className="fg-row">
-              <div className="fg"><label>Supervisor ID</label><input value={form.supId} onChange={e=>setForm({...form,supId:e.target.value})} placeholder="Auto-filled from QR"/></div>
-              <div className="fg"><label>Mobile (optional)</label><input value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="10-digit number" maxLength={10}/></div>
-            </div>
-            <div className="fg-row">
-              <div className="fg"><label>Login Username *</label><input value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="sup_name"/></div>
-              <div className="fg"><label>Password *</label><input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Password"/></div>
-            </div>
-          </>
+            {result.type==='supervisor'&&(
+              <div>
+                <div className="verify-badge vb-info pop">🔑 Supervisor QR</div>
+                <div className="card">
+                  <div className="erow" style={{cursor:'default'}}>
+                    <div className="avt avt-p">{result.data.name.charAt(0)}</div>
+                    <div className="ei">
+                      <div className="en">{result.data.name}</div>
+                      <div className="er">{result.data.id} · @{result.data.username}</div>
+                    </div>
+                    <span className="badge b-green">Active</span>
+                  </div>
+                  <div style={{marginTop:10,padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}>
+                    <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TOKENS ASSIGNED (ALL TIME)</div>
+                    <div style={{fontFamily:'var(--mono)',fontSize:24,color:'var(--accent3)'}}>{result.data.totalAssigned||0}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {result.type==='token'&&(
+              <div>
+                <div className={`verify-badge pop ${result.data.assignedTo?'vb-success':'vb-info'}`}>
+                  🎟️ Token — {result.data.assignedTo?'Assigned':'Free'}
+                </div>
+                <div className="card">
+                  <div className="g2">
+                    <div><div className="ct">Token ID</div><div style={{fontFamily:'var(--mono)',fontSize:13,color:'var(--accent2)'}}>{result.data.id}</div></div>
+                    <div><div className="ct">Date</div><div style={{fontFamily:'var(--mono)',fontSize:12}}>{result.data.lockedDate||'—'}</div></div>
+                    <div><div className="ct">Assigned To</div><div style={{fontFamily:'var(--mono)',fontSize:12}}>{result.data.assignedTo||'—'}</div></div>
+                    <div><div className="ct">Assigned By</div><div style={{fontSize:12}}>{result.data.assignedBy||'—'}</div></div>
+                    {result.data.assignedAt&&<div><div className="ct">Time</div><div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--muted2)'}}>{fmtTime(result.data.assignedAt)}</div></div>}
+                  </div>
+                  {result.data.employee&&(
+                    <div style={{marginTop:12,paddingTop:12,borderTop:'1px solid var(--border)'}}>
+                      <div className="ct" style={{marginBottom:8}}>Employee</div>
+                      <div className="erow" style={{cursor:'default'}}>
+                        <div className="avt avt-y">{result.data.employee.name.charAt(0)}</div>
+                        <div className="ei"><div className="en">{result.data.employee.name}</div><div className="er">{result.data.employee.id}</div></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {result.type==='unknown'&&(
+              <div className="verify-badge vb-error pop">❌ QR Not Recognised: {result.data.qr}</div>
+            )}
+          </div>
         )}
 
         <div className="modal-footer">
-          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          {step==='form'&&<button className="btn btn-primary" onClick={save} disabled={busy}>{busy?'Saving...':'✓ Save Supervisor'}</button>}
+          <button className="btn btn-ghost btn-full" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>
@@ -556,36 +722,33 @@ function AdminDashboard({user,toast}){
   const[employees,setEmployees]=useState([]);
   const[tokens,setTokens]=useState([]);
   const[supervisors,setSupervisors]=useState([]);
+  const[transactions,setTransactions]=useState([]);
   const[showAddEmp,setShowAddEmp]=useState(false);
   const[showAddSup,setShowAddSup]=useState(false);
+  const[showScan,setShowScan]=useState(false);
+  const[payoutEmp,setPayoutEmp]=useState(null);
   const[searchEmp,setSearchEmp]=useState('');
   const[searchTok,setSearchTok]=useState('');
   const[tokResult,setTokResult]=useState(null);
 
   const load=async()=>{
-    const[e,t,s]=await Promise.all([db.getEmployees(),db.getTokens(),db.getSupervisors()]);
-    setEmployees(e);setTokens(t);setSupervisors(s);
+    const[e,t,s,tx]=await Promise.all([db.getEmployees(),db.getTokens(),db.getSupervisors(),db.getTransactions()]);
+    setEmployees(e);setTokens(t);setSupervisors(s);setTransactions(tx);
   };
   useEffect(()=>{load();},[]);
 
   const assigned=tokens.filter(t=>t.assignedTo).length;
   const totalToks=employees.reduce((s,e)=>s+(e.totalTokens||0),0);
-
-  const handlePay=async(empId,name)=>{
-    if(!window.confirm(`Pay salary and reset tokens for ${name}?`)) return;
-    await db.resetEmployee(empId);toast.show('Salary paid & reset!','success');load();
-  };
+  const totalPaid=transactions.reduce((s,t)=>s+t.amount,0);
 
   const handleRemoveEmp=async(id,name)=>{
     if(!window.confirm(`Remove employee ${name}? This cannot be undone.`)) return;
     await db.removeEmployee(id);toast.show('Employee removed','info');load();
   };
-
   const handleRemoveSup=async(id,name)=>{
     if(!window.confirm(`Remove supervisor ${name}?`)) return;
     await db.removeSupervisor(id);toast.show('Supervisor removed','info');load();
   };
-
   const handleTokSearch=async()=>{
     if(!searchTok.trim()) return;
     const t=await db.getToken(searchTok.trim().toUpperCase());
@@ -595,13 +758,38 @@ function AdminDashboard({user,toast}){
     setTokResult({status:'assigned',token:t,employee:emp});
   };
 
-  const fEmps=employees.filter(e=>e.name.toLowerCase().includes(searchEmp.toLowerCase())||e.rollNo.toLowerCase().includes(searchEmp.toLowerCase())||(e.department||'').toLowerCase().includes(searchEmp.toLowerCase()));
+  const fEmps=employees.filter(e=>
+    e.name.toLowerCase().includes(searchEmp.toLowerCase())||
+    e.id.toLowerCase().includes(searchEmp.toLowerCase())||
+    (e.mobile||'').includes(searchEmp)
+  );
+
+  // ── REPORTS DATA ──
+  const todayTokens=tokens.filter(t=>t.lockedDate===today());
+  const dailyByEmp=employees.map(e=>({
+    ...e,
+    todayTokens:todayTokens.filter(t=>t.assignedTo===e.id).length
+  })).filter(e=>e.todayTokens>0).sort((a,b)=>b.todayTokens-a.todayTokens);
+
+  const supPerf=supervisors.map(s=>({
+    ...s,
+    totalAssigned:tokens.filter(t=>t.assignedBySup===s.id).length,
+    todayAssigned:todayTokens.filter(t=>t.assignedBySup===s.id).length,
+  }));
+
+  const TABS=['overview','employees','supervisors','tokens','token-search','reports','payout'];
 
   return(
     <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+        <div/>
+        <button className="btn btn-ghost btn-sm" onClick={()=>setShowScan(true)}>🔍 Universal Scan</button>
+      </div>
       <div className="tabs">
-        {['overview','employees','supervisors','tokens','token-search'].map(t=>(
-          <button key={t} className={`tab ${tab===t?'active':''}`} onClick={()=>setTab(t)}>{t.replace('-',' ')}</button>
+        {TABS.map(t=>(
+          <button key={t} className={`tab ${tab===t?'active':''}`} onClick={()=>setTab(t)}>
+            {t.replace('-',' ')}
+          </button>
         ))}
       </div>
 
@@ -611,18 +799,40 @@ function AdminDashboard({user,toast}){
           <div className="g4 mb14">
             <div className="card"><div className="ct">Employees</div><div className="stat-n">{employees.length}</div><div className="stat-l">registered</div></div>
             <div className="card"><div className="ct">Supervisors</div><div className="stat-n" style={{color:'var(--accent3)'}}>{supervisors.length}</div><div className="stat-l">active</div></div>
-            <div className="card"><div className="ct">Tokens Assigned</div><div className="stat-n" style={{color:'var(--accent2)'}}>{assigned}</div><div className="stat-l">of {tokens.length}</div></div>
-            <div className="card"><div className="ct">Total Earned</div><div className="stat-n" style={{color:'var(--accent)'}}>{totalToks}</div><div className="stat-l">this period</div></div>
+            <div className="card"><div className="ct">Tokens Pending</div><div className="stat-n" style={{color:'var(--accent2)'}}>{totalToks}</div><div className="stat-l">this period</div></div>
+            <div className="card"><div className="ct">Total Paid Out</div><div className="stat-n" style={{color:'var(--accent)'}}>₹{totalPaid.toLocaleString('en-IN')}</div><div className="stat-l">all time</div></div>
           </div>
-          <div className="card">
-            <div className="ct">Top earners — current period</div>
-            {[...employees].sort((a,b)=>(b.totalTokens||0)-(a.totalTokens||0)).slice(0,6).map(e=>(
-              <div key={e.id} className="erow" style={{cursor:'default'}}>
-                <div className="avt avt-y">{e.name.charAt(0)}</div>
-                <div className="ei"><div className="en">{e.name}</div><div className="er">{e.rollNo} · {e.department}</div></div>
-                <div><div className="etok">{e.totalTokens||0}</div><div className="etl">tokens</div></div>
+          <div className="g2">
+            <div className="card">
+              <div className="ct">Top earners — current period</div>
+              {[...employees].sort((a,b)=>(b.totalTokens||0)-(a.totalTokens||0)).slice(0,6).map(e=>(
+                <div key={e.id} className="erow" style={{cursor:'default'}}>
+                  <div className="avt avt-y">{e.name.charAt(0)}</div>
+                  <div className="ei"><div className="en">{e.name}</div><div className="er">{e.id}</div></div>
+                  <div><div className="etok">{e.totalTokens||0}</div><div className="etl">tokens</div></div>
+                </div>
+              ))}
+            </div>
+            <div className="card">
+              <div className="ct">Today's activity</div>
+              <div className="g2" style={{marginBottom:12}}>
+                <div style={{padding:12,background:'var(--s2)',borderRadius:8,textAlign:'center'}}>
+                  <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TODAY TOKENS</div>
+                  <div style={{fontFamily:'var(--mono)',fontSize:24,color:'var(--accent2)'}}>{todayTokens.length}</div>
+                </div>
+                <div style={{padding:12,background:'var(--s2)',borderRadius:8,textAlign:'center'}}>
+                  <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TODAY TXN</div>
+                  <div style={{fontFamily:'var(--mono)',fontSize:24,color:'var(--accent)'}}>{transactions.filter(t=>t.date===today()).length}</div>
+                </div>
               </div>
-            ))}
+              {transactions.slice(-3).reverse().map(t=>(
+                <div key={t.id} className="slog-item">
+                  <span style={{fontSize:12}}>{t.employeeName}</span>
+                  <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--accent2)'}}>₹{t.amount.toLocaleString('en-IN')}</span>
+                </div>
+              ))}
+              {transactions.length===0&&<div style={{textAlign:'center',padding:20,color:'var(--muted)',fontSize:12}}>No transactions yet</div>}
+            </div>
           </div>
         </>
       )}
@@ -635,22 +845,22 @@ function AdminDashboard({user,toast}){
             <button className="btn btn-success btn-sm" onClick={()=>setShowAddEmp(true)}>+ Register Employee</button>
           </div>
           <div className="card">
-            <div className="sbar"><input value={searchEmp} onChange={e=>setSearchEmp(e.target.value)} placeholder="Search name, roll no, department..."/></div>
+            <div className="sbar"><input value={searchEmp} onChange={e=>setSearchEmp(e.target.value)} placeholder="Search name, EMP ID, mobile..."/></div>
             <div className="tw">
               <table>
-                <thead><tr><th>Employee</th><th>Roll No</th><th>Mobile</th><th>Dept</th><th>Tokens</th><th>Paid</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Employee</th><th>ID</th><th>Mobile</th><th>Pending Tokens</th><th>Lifetime Paid</th><th>Payable</th><th>Actions</th></tr></thead>
                 <tbody>
                   {fEmps.map(e=>(
                     <tr key={e.id}>
                       <td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="avt avt-y" style={{width:28,height:28,fontSize:10}}>{e.name.charAt(0)}</div>{e.name}</div></td>
-                      <td className="mc">{e.rollNo}</td>
+                      <td className="mc" style={{color:'var(--accent)'}}>{e.id}</td>
                       <td className="mc" style={{color:'var(--muted2)'}}>{e.mobile||'—'}</td>
-                      <td><span className="badge b-gray">{e.department||'—'}</span></td>
-                      <td><span style={{fontFamily:'var(--mono)',color:'var(--accent)'}}>{e.totalTokens||0}</span></td>
+                      <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{e.totalTokens||0}</span></td>
                       <td className="mc" style={{color:'var(--muted2)'}}>{e.paidTokens||0}</td>
+                      <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>₹{((e.totalTokens||0)*TOKEN_VALUE).toLocaleString('en-IN')}</td>
                       <td>
                         <div style={{display:'flex',gap:6}}>
-                          <button className="btn btn-success btn-sm" onClick={()=>handlePay(e.id,e.name)}>Pay & Reset</button>
+                          <button className="btn btn-warn btn-sm" onClick={()=>setPayoutEmp(e)}>Pay & Reset</button>
                           <button className="btn btn-danger btn-sm" onClick={()=>handleRemoveEmp(e.id,e.name)}>Remove</button>
                         </div>
                       </td>
@@ -673,19 +883,23 @@ function AdminDashboard({user,toast}){
           <div className="card">
             <div className="tw">
               <table>
-                <thead><tr><th>Name</th><th>Supervisor ID</th><th>Mobile</th><th>Username</th><th>QR Card ID</th><th>Status</th><th>Action</th></tr></thead>
+                <thead><tr><th>Name</th><th>ID</th><th>Mobile</th><th>Username</th><th>QR ID</th><th>Tokens Assigned</th><th>Status</th><th>Action</th></tr></thead>
                 <tbody>
-                  {supervisors.map(s=>(
-                    <tr key={s.id}>
-                      <td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="avt avt-p" style={{width:28,height:28,fontSize:10}}>{s.name.charAt(0)}</div>{s.name}</div></td>
-                      <td className="mc">{s.supId||s.id}</td>
-                      <td className="mc" style={{color:'var(--muted2)'}}>{s.mobile||'—'}</td>
-                      <td className="mc">{s.username}</td>
-                      <td className="mc" style={{color:'var(--accent3)',fontSize:10}}>{s.qrId}</td>
-                      <td><span className="badge b-green">Active</span></td>
-                      <td><button className="btn btn-danger btn-sm" onClick={()=>handleRemoveSup(s.id,s.name)}>Remove</button></td>
-                    </tr>
-                  ))}
+                  {supervisors.map(s=>{
+                    const assigned=tokens.filter(t=>t.assignedBySup===s.id).length;
+                    return(
+                      <tr key={s.id}>
+                        <td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="avt avt-p" style={{width:28,height:28,fontSize:10}}>{s.name.charAt(0)}</div>{s.name}</div></td>
+                        <td className="mc" style={{color:'var(--accent3)'}}>{s.id}</td>
+                        <td className="mc" style={{color:'var(--muted2)'}}>{s.mobile||'—'}</td>
+                        <td className="mc">{s.username}</td>
+                        <td className="mc" style={{color:'var(--accent3)',fontSize:10}}>{s.qrId}</td>
+                        <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{assigned}</span></td>
+                        <td><span className="badge b-green">Active</span></td>
+                        <td><button className="btn btn-danger btn-sm" onClick={()=>handleRemoveSup(s.id,s.name)}>Remove</button></td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -700,19 +914,22 @@ function AdminDashboard({user,toast}){
             <span className="st">Token Pool ({tokens.length})</span>
             <span className="badge b-yellow">{assigned} assigned</span>
           </div>
-          <div className="sbar"><input value={searchTok} onChange={e=>{setSearchTok(e.target.value);setTokResult(null);}} placeholder="Search token ID..."/></div>
+          <div className="sbar"><input value={searchTok} onChange={e=>{setSearchTok(e.target.value);setTokResult(null);}} placeholder="Search token ID or employee ID..."/></div>
           <div className="tw">
             <table>
-              <thead><tr><th>Token</th><th>Status</th><th>Employee</th><th>Roll No</th><th>Assigned By</th><th>Date</th></tr></thead>
+              <thead><tr><th>Token</th><th>Status</th><th>Employee</th><th>Assigned By</th><th>Date</th><th>Time</th></tr></thead>
               <tbody>
-                {tokens.filter(t=>t.id.includes(searchTok.toUpperCase())||(t.assignedRoll||'').includes(searchTok.toUpperCase())).slice(0,60).map(t=>(
+                {tokens.filter(t=>
+                  t.id.includes(searchTok.toUpperCase())||
+                  (t.assignedTo||'').includes(searchTok.toUpperCase())
+                ).slice(0,80).map(t=>(
                   <tr key={t.id}>
                     <td className="mc">{t.id}</td>
                     <td><span className={`badge ${t.assignedTo?'b-green':'b-gray'}`}>{t.assignedTo?'Assigned':'Free'}</span></td>
-                    <td style={{fontSize:12}}>{t.assignedTo||'—'}</td>
-                    <td className="mc">{t.assignedRoll||'—'}</td>
+                    <td className="mc" style={{color:'var(--accent)'}}>{t.assignedTo||'—'}</td>
                     <td style={{fontSize:11,color:'var(--muted2)'}}>{t.assignedBy||'—'}</td>
                     <td style={{fontSize:10,color:'var(--muted)'}}>{t.lockedDate||'—'}</td>
+                    <td style={{fontSize:10,color:'var(--muted)'}}>{t.assignedAt?fmtTime(t.assignedAt):'—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -725,27 +942,27 @@ function AdminDashboard({user,toast}){
       {tab==='token-search'&&(
         <div className="card">
           <div className="ct">Token Lookup</div>
-          <p style={{fontSize:12,color:'var(--muted)',marginBottom:16}}>Search any token to see who it belongs to and when it was assigned.</p>
+          <p style={{fontSize:12,color:'var(--muted)',marginBottom:16}}>Search any token to see who it belongs to, when and by whom it was assigned.</p>
           <div className="sbar">
             <input value={searchTok} onChange={e=>{setSearchTok(e.target.value);setTokResult(null);}} placeholder="TKN000001" onKeyDown={e=>e.key==='Enter'&&handleTokSearch()}/>
             <button className="btn btn-success btn-sm" onClick={handleTokSearch}>Search</button>
           </div>
           {tokResult&&(
             <div style={{marginTop:14}}>
-              {tokResult.error&&<div style={{color:'var(--danger)',fontFamily:'var(--mono)',fontSize:12}}>{tokResult.error}</div>}
+              {tokResult.error&&<div className="verify-badge vb-error">{tokResult.error}</div>}
               {tokResult.status==='free'&&<div className="verify-badge vb-info">Token {tokResult.token.id} — Not yet assigned</div>}
               {tokResult.status==='assigned'&&tokResult.employee&&(
                 <div>
                   <div className="verify-badge vb-success">✓ Token {tokResult.token.id} — Assigned</div>
                   <div className="erow" style={{cursor:'default',marginBottom:12}}>
                     <div className="avt avt-y">{tokResult.employee.name.charAt(0)}</div>
-                    <div className="ei"><div className="en">{tokResult.employee.name}</div><div className="er">{tokResult.employee.rollNo} · {tokResult.employee.department}</div></div>
+                    <div className="ei"><div className="en">{tokResult.employee.name}</div><div className="er">{tokResult.employee.id}</div></div>
                   </div>
                   <div className="g2">
-                    <div className="card"><div className="ct">Assigned By</div><div style={{fontSize:13}}>{tokResult.token.assignedBy}</div></div>
-                    <div className="card"><div className="ct">Date Locked</div><div style={{fontFamily:'var(--mono)',fontSize:13}}>{tokResult.token.lockedDate}</div></div>
-                    <div className="card"><div className="ct">Merged ID</div><div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--accent2)'}}>{tokResult.token.id}::{tokResult.token.assignedRoll}</div></div>
-                    <div className="card"><div className="ct">Session</div><div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--muted2)'}}>{tokResult.token.sessionId}</div></div>
+                    <div className="card"><div className="ct">Assigned By</div><div style={{fontSize:13}}>{tokResult.token.assignedBy||'—'}</div></div>
+                    <div className="card"><div className="ct">Date</div><div style={{fontFamily:'var(--mono)',fontSize:13}}>{tokResult.token.lockedDate||'—'}</div></div>
+                    <div className="card"><div className="ct">Time</div><div style={{fontFamily:'var(--mono)',fontSize:13}}>{fmtTime(tokResult.token.assignedAt)}</div></div>
+                    <div className="card"><div className="ct">Supervisor ID</div><div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--accent3)'}}>{tokResult.token.assignedBySup||'—'}</div></div>
                   </div>
                 </div>
               )}
@@ -754,15 +971,178 @@ function AdminDashboard({user,toast}){
         </div>
       )}
 
+      {/* ── REPORTS ── */}
+      {tab==='reports'&&(
+        <div>
+          <div className="report-header">
+            <span className="st">Reports & Analytics</span>
+            <span className="report-date">As of {new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</span>
+          </div>
+
+          {/* Daily Token Report */}
+          <div className="card mb14">
+            <div className="ct">📅 Daily Token Report — {today()}</div>
+            {dailyByEmp.length===0?(
+              <div style={{textAlign:'center',padding:24,color:'var(--muted)',fontSize:12}}>No tokens assigned today</div>
+            ):(
+              <div className="tw">
+                <table>
+                  <thead><tr><th>Employee</th><th>ID</th><th>Tokens Today</th><th>Value</th></tr></thead>
+                  <tbody>
+                    {dailyByEmp.map(e=>(
+                      <tr key={e.id}>
+                        <td>{e.name}</td>
+                        <td className="mc" style={{color:'var(--accent)'}}>{e.id}</td>
+                        <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)',fontSize:14}}>{e.todayTokens}</span></td>
+                        <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>₹{(e.todayTokens*TOKEN_VALUE).toLocaleString('en-IN')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Token Trace Report */}
+          <div className="card mb14">
+            <div className="ct">🔗 Token Trace Report</div>
+            <div className="tw">
+              <table>
+                <thead><tr><th>Token</th><th>Employee</th><th>Supervisor</th><th>Date</th><th>Time</th></tr></thead>
+                <tbody>
+                  {tokens.filter(t=>t.assignedTo).slice(0,50).map(t=>(
+                    <tr key={t.id}>
+                      <td className="mc" style={{color:'var(--accent2)'}}>{t.id}</td>
+                      <td className="mc" style={{color:'var(--accent)'}}>{t.assignedTo}</td>
+                      <td style={{fontSize:11}}>{t.assignedBy||'—'} <span style={{color:'var(--accent3)',fontFamily:'var(--mono)',fontSize:9}}>({t.assignedBySup||'—'})</span></td>
+                      <td style={{fontSize:10,color:'var(--muted)'}}>{t.lockedDate||'—'}</td>
+                      <td style={{fontSize:10,color:'var(--muted)'}}>{t.assignedAt?fmtTime(t.assignedAt):'—'}</td>
+                    </tr>
+                  ))}
+                  {tokens.filter(t=>t.assignedTo).length===0&&(
+                    <tr><td colSpan={5} style={{textAlign:'center',color:'var(--muted)',padding:24}}>No tokens assigned yet</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Employee Summary */}
+          <div className="card mb14">
+            <div className="ct">👤 Employee Summary</div>
+            <div className="tw">
+              <table>
+                <thead><tr><th>Employee</th><th>ID</th><th>Pending Tokens</th><th>Lifetime Paid</th><th>Payable Now</th></tr></thead>
+                <tbody>
+                  {employees.map(e=>(
+                    <tr key={e.id}>
+                      <td>{e.name}</td>
+                      <td className="mc" style={{color:'var(--accent)'}}>{e.id}</td>
+                      <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{e.totalTokens||0}</span></td>
+                      <td className="mc" style={{color:'var(--muted2)'}}>{e.paidTokens||0}</td>
+                      <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>₹{((e.totalTokens||0)*TOKEN_VALUE).toLocaleString('en-IN')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Supervisor Performance */}
+          <div className="card mb14">
+            <div className="ct">⚡ Supervisor Performance</div>
+            <div className="tw">
+              <table>
+                <thead><tr><th>Supervisor</th><th>ID</th><th>Today Assigned</th><th>All Time Assigned</th></tr></thead>
+                <tbody>
+                  {supPerf.map(s=>(
+                    <tr key={s.id}>
+                      <td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="avt avt-p" style={{width:24,height:24,fontSize:9}}>{s.name.charAt(0)}</div>{s.name}</div></td>
+                      <td className="mc" style={{color:'var(--accent3)'}}>{s.id}</td>
+                      <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{s.todayAssigned}</span></td>
+                      <td><span style={{fontFamily:'var(--mono)',color:'var(--accent)'}}>{s.totalAssigned}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PAYOUT ── */}
+      {tab==='payout'&&(
+        <div>
+          <div className="sh mb14">
+            <span className="st">Payout Panel</span>
+            <span style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--muted)'}}>₹{TOKEN_VALUE}/token</span>
+          </div>
+          <div className="g2 mb14">
+            {employees.filter(e=>(e.totalTokens||0)>0).length===0&&(
+              <div className="card" style={{gridColumn:'1/-1',textAlign:'center',padding:40,color:'var(--muted)'}}>
+                No employees with pending tokens
+              </div>
+            )}
+            {employees.filter(e=>(e.totalTokens||0)>0).sort((a,b)=>b.totalTokens-a.totalTokens).map(e=>(
+              <div key={e.id} className="card" style={{borderColor:'rgba(61,232,160,.2)'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <div className="avt avt-y">{e.name.charAt(0)}</div>
+                    <div>
+                      <div style={{fontWeight:600}}>{e.name}</div>
+                      <div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--accent)',marginTop:2}}>{e.id}</div>
+                    </div>
+                  </div>
+                  <span className="badge b-green">{e.totalTokens} tokens</span>
+                </div>
+                <div className="payout-box" style={{padding:14,marginBottom:12}}>
+                  <div style={{fontSize:11,color:'var(--muted)'}}>Payable Amount</div>
+                  <div style={{fontFamily:'var(--mono)',fontSize:26,color:'var(--accent2)',lineHeight:1.2}}>₹{((e.totalTokens||0)*TOKEN_VALUE).toLocaleString('en-IN')}</div>
+                </div>
+                <button className="btn btn-warn btn-full btn-sm" onClick={()=>setPayoutEmp(e)}>PAY & RESET →</button>
+              </div>
+            ))}
+          </div>
+
+          {/* Payment History */}
+          <div className="card">
+            <div className="ct">Payment History ({transactions.length})</div>
+            {transactions.length===0?(
+              <div style={{textAlign:'center',padding:24,color:'var(--muted)',fontSize:12}}>No transactions yet</div>
+            ):(
+              <div className="tw">
+                <table>
+                  <thead><tr><th>Txn ID</th><th>Employee</th><th>ID</th><th>Tokens Paid</th><th>Amount</th><th>Date</th></tr></thead>
+                  <tbody>
+                    {[...transactions].reverse().map(t=>(
+                      <tr key={t.id}>
+                        <td className="mc" style={{fontSize:10,color:'var(--muted2)'}}>{t.id}</td>
+                        <td>{t.employeeName}</td>
+                        <td className="mc" style={{color:'var(--accent)'}}>{t.employeeId}</td>
+                        <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{t.tokensPaid}</span></td>
+                        <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:13}}>₹{t.amount.toLocaleString('en-IN')}</td>
+                        <td style={{fontSize:11,color:'var(--muted)'}}>{t.date}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── MODALS ── */}
       {showAddEmp&&<AddEmployeeModal onClose={()=>setShowAddEmp(false)} onSaved={load} toast={toast}/>}
       {showAddSup&&<AddSupervisorModal onClose={()=>setShowAddSup(false)} onSaved={load} toast={toast}/>}
+      {showScan&&<UniversalScanModal onClose={()=>setShowScan(false)} toast={toast}/>}
+      {payoutEmp&&<PayoutModal emp={payoutEmp} onClose={()=>setPayoutEmp(null)} onDone={load} toast={toast}/>}
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════
-// SUPERVISOR PANEL — Step 1: verify employee, Step 2: scan tokens
+// SUPERVISOR PANEL
 // ═══════════════════════════════════════════════════
 function SupervisorPanel({user,toast}){
   const[employees,setEmployees]=useState([]);
@@ -780,38 +1160,48 @@ function SupervisorPanel({user,toast}){
 
   useEffect(()=>{db.getEmployees().then(setEmployees);},[]);
 
-  // ── STEP 1: verify employee by QR ──
+  // ── STEP 1: verify employee ──
   const verifyEmployee=async(raw)=>{
     setEmpCam(false);
-    const rollNo=raw.trim();
-    const emp=await db.getEmployeeByRoll(rollNo);
-    if(!emp){toast.show('Employee not found for QR: '+rollNo,'error');return;}
+    const val=raw.trim().toUpperCase();
+
+    // Block supervisor QR from being scanned as employee
+    const isSup=DB.supervisors.find(s=>s.qrId===val||s.id===val);
+    if(isSup){
+      toast.show('❌ Supervisor ID detected — cannot assign token','error');
+      setEmpManual('');return;
+    }
+
+    const emp=await db.getEmployeeById(val);
+    if(!emp){toast.show('Employee not found: '+val,'error');return;}
     setVerifiedEmp(emp);setStep('tokens');
-    toast.show('Employee verified: '+emp.name,'success');
+    toast.show('✔ Employee verified: '+emp.name,'success');
     setTimeout(()=>tokInputRef.current?.focus(),300);
   };
 
   // ── STEP 2: assign token ──
   const assignToken=async(raw)=>{
     const tokenId=raw.trim().toUpperCase();
-    if(!tokenId||!verifiedEmp) return;
+    if(!tokenId||!verifiedEmp){toast.show('❌ Scan employee first','error');return;}
+
+    // Block token assignment if tokenId is a supervisor QR
+    const isSup=DB.supervisors.find(s=>s.qrId===tokenId||s.id===tokenId);
+    if(isSup){toast.show('❌ Supervisor QR cannot receive tokens','error');setTokManual('');return;}
+
     setTokBusy(true);
     try{
-      await db.assignToken(tokenId,verifiedEmp.id,verifiedEmp.rollNo,user.name,sessionId);
-      const merged=`${tokenId}::${verifiedEmp.rollNo}`;
-      setSessionTokens(p=>[...p,{tokenId,merged,at:new Date().toLocaleTimeString()}]);
+      await db.assignToken(tokenId,verifiedEmp.id,user.id,user.name,sessionId);
+      setSessionTokens(p=>[...p,{tokenId,empId:verifiedEmp.id,empName:verifiedEmp.name,at:new Date().toLocaleTimeString()}]);
       setTokManual('');
-      // refresh employee token count
       const updated=await db.getEmployeeById(verifiedEmp.id);
       if(updated) setVerifiedEmp(updated);
-      toast.show(`✓ ${tokenId} assigned to ${verifiedEmp.name}`,'success');
+      toast.show(`✓ ${tokenId} → ${verifiedEmp.name}`,'success');
     }catch(e){toast.show(e.message,'error');}
     finally{setTokBusy(false);setTokCam(false);setTimeout(()=>tokInputRef.current?.focus(),100);}
   };
 
   const resetSession=()=>{setStep('verify');setVerifiedEmp(null);setSessionTokens([]);setEmpManual('');setTokManual('');};
-
-  const fEmps=employees.filter(e=>e.name.toLowerCase().includes(empSearch.toLowerCase())||e.rollNo.toLowerCase().includes(empSearch.toLowerCase()));
+  const fEmps=employees.filter(e=>e.name.toLowerCase().includes(empSearch.toLowerCase())||e.id.toLowerCase().includes(empSearch.toLowerCase()));
 
   return(
     <div>
@@ -840,8 +1230,8 @@ function SupervisorPanel({user,toast}){
               ):(
                 <div className="scanbox">
                   <div className="scan-icon">🪪</div>
-                  <div className="scan-hint">Scan the employee's physical QR card to verify them</div>
-                  <input className="scan-input" value={empManual} onChange={e=>setEmpManual(e.target.value)} onKeyDown={e=>e.key==='Enter'&&verifyEmployee(empManual)} placeholder="Roll No / QR Value" autoFocus/>
+                  <div className="scan-hint">Scan the employee's QR card or enter their Employee ID</div>
+                  <input className="scan-input" value={empManual} onChange={e=>setEmpManual(e.target.value.toUpperCase())} onKeyDown={e=>e.key==='Enter'&&verifyEmployee(empManual)} placeholder="EMP001" autoFocus/>
                   <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}>
                     <button className="btn btn-ghost btn-sm" onClick={()=>setEmpCam(true)}>📷 Camera</button>
                     <button className="btn btn-success btn-sm" onClick={()=>verifyEmployee(empManual)} disabled={!empManual.trim()}>Verify →</button>
@@ -856,9 +1246,9 @@ function SupervisorPanel({user,toast}){
               <div className="sbar"><input value={empSearch} onChange={e=>setEmpSearch(e.target.value)} placeholder="Search employee..."/></div>
               <div style={{maxHeight:320,overflowY:'auto'}}>
                 {fEmps.map(e=>(
-                  <div key={e.id} className="erow" onClick={()=>verifyEmployee(e.rollNo)}>
+                  <div key={e.id} className="erow" onClick={()=>verifyEmployee(e.id)}>
                     <div className="avt avt-y">{e.name.charAt(0)}</div>
-                    <div className="ei"><div className="en">{e.name}</div><div className="er">{e.rollNo}</div></div>
+                    <div className="ei"><div className="en">{e.name}</div><div className="er">{e.id}</div></div>
                     <div><div className="etok" style={{fontSize:13}}>{e.totalTokens||0}</div><div className="etl">tokens</div></div>
                   </div>
                 ))}
@@ -872,21 +1262,19 @@ function SupervisorPanel({user,toast}){
       {step==='tokens'&&verifiedEmp&&(
         <div className="g2">
           <div>
-            {/* Verified employee card */}
             <div className="card mb14" style={{borderColor:'var(--accent2)'}}>
               <div className="verify-badge vb-success pop" style={{marginBottom:14}}>✓ Employee Verified</div>
               <div className="erow" style={{cursor:'default'}}>
                 <div className="avt avt-g">{verifiedEmp.name.charAt(0)}</div>
                 <div className="ei">
                   <div className="en">{verifiedEmp.name}</div>
-                  <div className="er">{verifiedEmp.rollNo} · {verifiedEmp.department}</div>
+                  <div className="er">{verifiedEmp.id}</div>
                   {verifiedEmp.mobile&&<div className="er">📞 {verifiedEmp.mobile}</div>}
                 </div>
                 <div><div className="etok">{verifiedEmp.totalTokens||0}</div><div className="etl">tokens</div></div>
               </div>
             </div>
 
-            {/* Scan token */}
             <div className="card">
               <div className="ct">Scan Token QR</div>
               {tokCam?(
@@ -894,8 +1282,8 @@ function SupervisorPanel({user,toast}){
               ):(
                 <div className={`scanbox ${tokManual?'live':''}`}>
                   <div className="scan-icon">🎟️</div>
-                  <div className="scan-hint">Merging token with <strong style={{color:'var(--accent2)'}}>{verifiedEmp.rollNo}</strong></div>
-                  <input ref={tokInputRef} className="scan-input" value={tokManual} onChange={e=>setTokManual(e.target.value)} onKeyDown={e=>e.key==='Enter'&&assignToken(tokManual)} placeholder="TKN000001" autoFocus/>
+                  <div className="scan-hint">Assigning to <strong style={{color:'var(--accent2)'}}>{verifiedEmp.id}</strong></div>
+                  <input ref={tokInputRef} className="scan-input" value={tokManual} onChange={e=>setTokManual(e.target.value.toUpperCase())} onKeyDown={e=>e.key==='Enter'&&assignToken(tokManual)} placeholder="TKN000001" autoFocus/>
                   <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}>
                     <button className="btn btn-ghost btn-sm" onClick={()=>setTokCam(true)}>📷 Camera</button>
                     <button className="btn btn-success btn-sm" onClick={()=>assignToken(tokManual)} disabled={tokBusy||!tokManual.trim()}>
@@ -907,7 +1295,6 @@ function SupervisorPanel({user,toast}){
             </div>
           </div>
 
-          {/* Session log */}
           <div>
             <div className="card">
               <div className="sh">
@@ -928,8 +1315,8 @@ function SupervisorPanel({user,toast}){
               )}
               {sessionTokens.length>0&&(
                 <div style={{marginTop:12,fontSize:10,color:'var(--muted)',fontFamily:'var(--mono)'}}>
-                  Session: {sessionId}<br/>
-                  All tokens merged with {verifiedEmp.rollNo}
+                  Session: {sessionId.slice(0,16)}<br/>
+                  Emp: {verifiedEmp.id}
                 </div>
               )}
             </div>
