@@ -9,6 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 
 <!-- Firebase SDK -->
@@ -16,7 +17,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script>
   firebase.initializeApp({
-apiKey: "AIzaSyARLbZ_SxgLEMG3OP4Q-IIprIk8FK9-hAM",
+     apiKey: "AIzaSyARLbZ_SxgLEMG3OP4Q-IIprIk8FK9-hAM",
   authDomain: "token-pay-demo.firebaseapp.com",
   projectId: "token-pay-demo",
   storageBucket: "token-pay-demo.firebasestorage.app",
@@ -1084,8 +1085,6 @@ function TokenSearchPanel({toast}){
 // ═══════════════════════════════════════════════════
 // UNIVERSAL SCAN MODAL — details only, no assignment
 // ═══════════════════════════════════════════════════
-  
-  function UniversalScanModal({onClose, toast}) {
   const[camOpen,setCamOpen]=useState(false);
   const[manual,setManual]=useState('');
   const[result,setResult]=useState(null);
@@ -1207,12 +1206,55 @@ function TokenSearchPanel({toast}){
 }
 
 // ═══════════════════════════════════════════════════
+// DATE FILTER — standalone component (fixes remount bug)
+// ═══════════════════════════════════════════════════
+function DateFilter({fromDate,toDate,setFromDate,setToDate}){
+  return(
+    <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',marginBottom:16,padding:'12px 14px',background:'var(--s2)',borderRadius:8}}>
+      <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>DATE RANGE</div>
+      <div style={{display:'flex',gap:8,alignItems:'center'}}>
+        <input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)}
+          style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/>
+        <span style={{color:'var(--muted)',fontSize:11}}>to</span>
+        <input type="date" value={toDate} onChange={e=>setToDate(e.target.value)}
+          style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/>
+      </div>
+      <button className="btn btn-ghost btn-sm" onClick={()=>{setFromDate(today());setToDate(today());}}>Today</button>
+      <button className="btn btn-ghost btn-sm" onClick={()=>{
+        const d=new Date();d.setDate(d.getDate()-6);
+        setFromDate(d.toISOString().split('T')[0]);setToDate(today());
+      }}>Last 7 days</button>
+      <button className="btn btn-ghost btn-sm" onClick={()=>{
+        const d=new Date();d.setDate(1);
+        setFromDate(d.toISOString().split('T')[0]);setToDate(today());
+      }}>This month</button>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
+// EXCEL EXPORT HELPER
+// ═══════════════════════════════════════════════════
+function exportToExcel(sheets,filename){
+  const wb=XLSX.utils.book_new();
+  sheets.forEach(({name,data})=>{
+    const ws=XLSX.utils.aoa_to_sheet(data);
+    const colWidths=data[0]?data[0].map((_,ci)=>({wch:Math.max(...data.map(r=>String(r[ci]||'').length),10)})):[];
+    ws['!cols']=colWidths;
+    XLSX.utils.book_append_sheet(wb,ws,name.substring(0,31));
+  });
+  XLSX.writeFile(wb,filename);
+}
+
+// ═══════════════════════════════════════════════════
 // REPORTS PANEL — Full featured with date filters
 // ═══════════════════════════════════════════════════
 function ReportsPanel({tokens,employees,supervisors,transactions}){
   const[rTab,setRTab]=useState('daily');
   const[fromDate,setFromDate]=useState(today());
   const[toDate,setToDate]=useState(today());
+  const[empFromDate,setEmpFromDate]=useState('');
+  const[empToDate,setEmpToDate]=useState('');
   const[selEmp,setSelEmp]=useState('');
   const[selSup,setSelSup]=useState('');
   const[txFromDate,setTxFromDate]=useState('');
@@ -1228,7 +1270,6 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
 
   // ── DAILY SUMMARY ──
   const dailyToks=tokens.filter(t=>t.lockedDate&&inRange(t.lockedDate,fromDate,toDate));
-  // group by date
   const byDate={};
   dailyToks.forEach(t=>{
     const d=t.lockedDate;
@@ -1239,21 +1280,28 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
   });
   const dailySummaryRows=Object.values(byDate).sort((a,b)=>b.date.localeCompare(a.date));
 
-  // ── DATE VIEW — everything on selected date range ──
+  // ── DATE VIEW ──
   const dateViewToks=tokens.filter(t=>t.lockedDate&&inRange(t.lockedDate,fromDate,toDate));
   const dateViewByEmp={};
   dateViewToks.forEach(t=>{
-    if(!dateViewByEmp[t.assignedTo]) dateViewByEmp[t.assignedTo]={empId:t.assignedTo,tokens:[],value:0};
-    dateViewByEmp[t.assignedTo].tokens.push(t);
-    dateViewByEmp[t.assignedTo].value+=(t.value||TOKEN_VALUE);
+    const empId=t.assignedTo||'UNKNOWN';
+    if(!dateViewByEmp[empId]) dateViewByEmp[empId]={empId,tokens:[],value:0};
+    dateViewByEmp[empId].tokens.push(t);
+    dateViewByEmp[empId].value+=(t.value||TOKEN_VALUE);
   });
   const dateViewRows=Object.values(dateViewByEmp).map(row=>{
     const emp=employees.find(e=>e.id===row.empId);
-    return{...row,empName:emp?emp.name:'Unknown'};
+    return{...row,empName:emp?emp.name:row.empId};
   }).sort((a,b)=>b.tokens.length-a.tokens.length);
 
-  // ── EMPLOYEE VIEW — per employee full history ──
-  const empToks=tokens.filter(t=>t.assignedTo&&(!selEmp||t.assignedTo===selEmp));
+  // ── EMPLOYEE VIEW — per employee with optional date filter ──
+  const empRangeActive=!!(empFromDate||empToDate);
+  const empToks=tokens.filter(t=>{
+    if(!t.assignedTo) return false;
+    if(selEmp&&t.assignedTo!==selEmp) return false;
+    if(empRangeActive&&!inRange(t.lockedDate,empFromDate||'2020-01-01',empToDate||'2099-12-31')) return false;
+    return true;
+  });
   const empHistory=employees
     .filter(e=>!selEmp||e.id===selEmp)
     .map(e=>{
@@ -1278,12 +1326,85 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
   const supTotals=supervisors.map(s=>{
     const rows=supRows.filter(r=>r.supId===s.id);
     return{...s,periodCount:rows.reduce((x,r)=>x+r.count,0),periodValue:rows.reduce((x,r)=>x+r.value,0)};
-  }).filter(s=>s.periodCount>0||!selSup);
+  }).filter(s=>s.periodCount>0||selSup===s.id);
 
   // ── PAYOUT HISTORY ──
   const filteredTxns=transactions.filter(t=>inRange(t.date,txFromDate||'2020-01-01',txToDate||'2099-12-31'));
   const txTotal=filteredTxns.reduce((s,t)=>s+t.amount,0);
   const txTokens=filteredTxns.reduce((s,t)=>s+t.tokensPaid,0);
+
+  // ── EXCEL EXPORTS ──
+  const exportDaily=()=>{
+    const rangeLabel=fromDate===toDate?fromDate:`${fromDate} to ${toDate}`;
+    const rows=[
+      [`Daily Summary Report — ${rangeLabel}`],
+      [`Generated: ${new Date().toLocaleString('en-IN')}`],
+      [],
+      ['Date','Tokens Assigned','Total Value (INR)','Unique Employees','Unique Supervisors'],
+      ...dailySummaryRows.map(row=>{
+        const empIds=[...new Set(row.tokens.map(t=>t.assignedTo))];
+        const supIds=[...new Set(row.tokens.map(t=>t.assignedBySup).filter(Boolean))];
+        return[row.date,row.total,row.value,empIds.length,supIds.length];
+      }),
+      [],
+      ['TOTAL','',dailyToks.reduce((s,t)=>s+(t.value||TOKEN_VALUE),0),'',''],
+    ];
+    exportToExcel([{name:'Daily Summary',data:rows}],`daily-summary-${fromDate}-to-${toDate}.xlsx`);
+  };
+  const exportByDate=()=>{
+    const rangeLabel=fromDate===toDate?fromDate:`${fromDate} to ${toDate}`;
+    const summaryRows=[
+      [`By Date Report — ${rangeLabel}`],['Generated: '+new Date().toLocaleString('en-IN')],[],
+      ['Employee Name','Employee ID','Tokens','Value (INR)','Token IDs'],
+      ...dateViewRows.map(row=>[row.empName,row.empId,row.tokens.length,row.value,row.tokens.map(t=>t.id).join(', ')]),
+      [],['TOTAL','',dateViewToks.length,dateViewToks.reduce((s,t)=>s+(t.value||TOKEN_VALUE),0),''],
+    ];
+    const traceRows=[
+      ['Full Token Trace'],[],
+      ['Token ID','Employee ID','Supervisor','Supervisor ID','Date','Time'],
+      ...[...dateViewToks].sort((a,b)=>(b.assignedAt||'').localeCompare(a.assignedAt||'')).map(t=>[
+        t.id,t.assignedTo,t.assignedBy||'',t.assignedBySup||'',t.lockedDate,fmtTime(t.assignedAt)
+      ]),
+    ];
+    exportToExcel([{name:'Employee Breakdown',data:summaryRows},{name:'Token Trace',data:traceRows}],`by-date-${fromDate}-to-${toDate}.xlsx`);
+  };
+  const exportByEmployee=()=>{
+    const dateLabel=empRangeActive?`${empFromDate||'All'} to ${empToDate||'All'}`:'All Time';
+    const summaryData=[
+      [`By Employee Report — ${dateLabel}`],['Generated: '+new Date().toLocaleString('en-IN')],[],
+      ['Employee Name','Employee ID','Mobile','Tokens in Range','Value (INR)','Pending Tokens','Paid Tokens','Total Paid Out (INR)'],
+      ...empHistory.map(e=>[e.name,e.id,e.mobile||'',e.assignedToks.length,e.totalValue,e.totalTokens||0,e.paidTokens||0,e.totalPaid]),
+    ];
+    const sheets=[{name:'Summary',data:summaryData}];
+    empHistory.forEach(e=>{
+      const sn=e.name.substring(0,25)||e.id;
+      const rows=[[e.name,e.id],[],['Token ID','Value (INR)','Assigned By','Date','Time'],
+        ...e.assignedToks.sort((a,b)=>(b.assignedAt||'').localeCompare(a.assignedAt||'')).map(t=>[t.id,t.value||TOKEN_VALUE,t.assignedBy||'',t.lockedDate||'',fmtTime(t.assignedAt)])];
+      if(e.txns.length>0){rows.push([]);rows.push(['Payout History']);rows.push(['Txn ID','Tokens Paid','Amount (INR)','Date']);e.txns.forEach(t=>rows.push([t.id,t.tokensPaid,t.amount,t.date]));}
+      sheets.push({name:sn,data:rows});
+    });
+    exportToExcel(sheets,`by-employee-${today()}.xlsx`);
+  };
+  const exportSupervisor=()=>{
+    const perfData=[
+      [`Supervisor Report — ${fromDate} to ${toDate}`],['Generated: '+new Date().toLocaleString('en-IN')],[],
+      ['Supervisor Name','ID','Tokens Assigned','Total Value (INR)'],
+      ...supTotals.map(s=>[s.name,s.id,s.periodCount,s.periodValue]),
+    ];
+    const logData=[['Day-by-day Log'],[],['Date','Supervisor Name','Supervisor ID','Tokens','Value (INR)'],
+      ...supRows.map(r=>[r.date,r.supName||r.supId,r.supId,r.count,r.value])];
+    exportToExcel([{name:'Performance',data:perfData},{name:'Daily Log',data:logData}],`supervisor-${fromDate}-to-${toDate}.xlsx`);
+  };
+  const exportPayout=()=>{
+    const rangeLabel=txFromDate||txToDate?`${txFromDate||'All'} to ${txToDate||'All'}`:'All Time';
+    const rows=[
+      [`Payout History — ${rangeLabel}`],['Generated: '+new Date().toLocaleString('en-IN')],[],
+      ['Txn ID','Employee Name','Employee ID','Tokens Paid','Amount (INR)','Date','Time'],
+      ...filteredTxns.map(t=>[t.id,t.employeeName,t.employeeId,t.tokensPaid,t.amount,t.date,fmtTime(t.timestamp)]),
+      [],['TOTAL','','',txTokens,txTotal,'',''],
+    ];
+    exportToExcel([{name:'Payout History',data:rows}],`payout-history-${today()}.xlsx`);
+  };
 
   const RTABS=[
     {id:'daily',label:'📅 Daily Summary'},
@@ -1293,26 +1414,8 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
     {id:'payout',label:'💰 Payout History'},
   ];
 
-  const DateFilter=()=>(
-    <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',marginBottom:16,padding:'12px 14px',background:'var(--s2)',borderRadius:8}}>
-      <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>DATE RANGE</div>
-      <div style={{display:'flex',gap:8,alignItems:'center'}}>
-        <input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)}
-          style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/>
-        <span style={{color:'var(--muted)',fontSize:11}}>to</span>
-        <input type="date" value={toDate} onChange={e=>setToDate(e.target.value)}
-          style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/>
-      </div>
-      <button className="btn btn-ghost btn-sm" onClick={()=>{setFromDate(today());setToDate(today());}}>Today</button>
-      <button className="btn btn-ghost btn-sm" onClick={()=>{
-        const d=new Date();d.setDate(d.getDate()-6);
-        setFromDate(d.toISOString().split('T')[0]);setToDate(today());
-      }}>Last 7 days</button>
-      <button className="btn btn-ghost btn-sm" onClick={()=>{
-        const d=new Date();d.setDate(1);
-        setFromDate(d.toISOString().split('T')[0]);setToDate(today());
-      }}>This month</button>
-    </div>
+  const XlBtn=({onClick,disabled})=>(
+    <button className="btn btn-success btn-sm" onClick={onClick} disabled={disabled} style={{whiteSpace:'nowrap'}}>⬇ Excel</button>
   );
 
   return(
@@ -1338,8 +1441,10 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
       {/* ── DAILY SUMMARY ── */}
       {rTab==='daily'&&(
         <div>
-          <DateFilter/>
-          {/* Summary stats */}
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:0}}>
+            <div style={{flex:1,minWidth:300}}><DateFilter fromDate={fromDate} toDate={toDate} setFromDate={setFromDate} setToDate={setToDate}/></div>
+            <div style={{paddingTop:4}}><XlBtn onClick={exportDaily} disabled={dailySummaryRows.length===0}/></div>
+          </div>
           <div className="g4 mb14">
             <div className="card"><div className="ct">Total Tokens</div><div className="stat-n" style={{color:'var(--accent2)'}}>{dailyToks.length}</div><div className="stat-l">in range</div></div>
             <div className="card"><div className="ct">Total Value</div><div className="stat-n" style={{fontSize:20}}>₹{dailyToks.reduce((s,t)=>s+(t.value||TOKEN_VALUE),0).toLocaleString('en-IN')}</div><div className="stat-l">in range</div></div>
@@ -1379,7 +1484,10 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
       {/* ── BY DATE VIEW ── */}
       {rTab==='date'&&(
         <div>
-          <DateFilter/>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:0}}>
+            <div style={{flex:1,minWidth:300}}><DateFilter fromDate={fromDate} toDate={toDate} setFromDate={setFromDate} setToDate={setToDate}/></div>
+            <div style={{paddingTop:4}}><XlBtn onClick={exportByDate} disabled={dateViewToks.length===0}/></div>
+          </div>
           <div className="card mb14">
             <div className="sh">
               <div className="ct" style={{margin:0}}>Employee-wise breakdown ({fromDate===toDate?fromDate:fromDate+' → '+toDate})</div>
@@ -1410,7 +1518,6 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
               </div>
             )}
           </div>
-          {/* Token trace for date range */}
           <div className="card">
             <div className="ct">Full token trace — {fromDate===toDate?fromDate:fromDate+' to '+toDate}</div>
             <div className="tw">
@@ -1418,7 +1525,7 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
                 <thead><tr><th>Token</th><th>Employee</th><th>Supervisor</th><th>Date</th><th>Time</th></tr></thead>
                 <tbody>
                   {dateViewToks.length===0&&<tr><td colSpan={5} style={{textAlign:'center',color:'var(--muted)',padding:24}}>No tokens in range</td></tr>}
-                  {dateViewToks.sort((a,b)=>(b.assignedAt||'').localeCompare(a.assignedAt||'')).map(t=>(
+                  {[...dateViewToks].sort((a,b)=>(b.assignedAt||'').localeCompare(a.assignedAt||'')).map(t=>(
                     <tr key={t.id}>
                       <td className="mc" style={{color:'var(--accent2)'}}>{t.id}</td>
                       <td className="mc" style={{color:'var(--accent)'}}>{t.assignedTo}</td>
@@ -1437,8 +1544,8 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
       {/* ── BY EMPLOYEE ── */}
       {rTab==='employee'&&(
         <div>
-          <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:16,padding:'12px 14px',background:'var(--s2)',borderRadius:8,flexWrap:'wrap'}}>
-            <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>FILTER EMPLOYEE</div>
+          <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:10,padding:'12px 14px',background:'var(--s2)',borderRadius:8,flexWrap:'wrap'}}>
+            <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>EMPLOYEE</div>
             <select value={selEmp} onChange={e=>setSelEmp(e.target.value)}
               style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'6px 10px',color:'var(--text)',fontSize:12,minWidth:200}}>
               <option value=''>All Employees</option>
@@ -1446,8 +1553,28 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
             </select>
             {selEmp&&<button className="btn btn-ghost btn-sm" onClick={()=>setSelEmp('')}>✕ Clear</button>}
           </div>
+          <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:16,padding:'12px 14px',background:'var(--s2)',borderRadius:8,flexWrap:'wrap'}}>
+            <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>DATE RANGE</div>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <input type="date" value={empFromDate} onChange={e=>setEmpFromDate(e.target.value)}
+                style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/>
+              <span style={{color:'var(--muted)',fontSize:11}}>to</span>
+              <input type="date" value={empToDate} onChange={e=>setEmpToDate(e.target.value)}
+                style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/>
+            </div>
+            <button className="btn btn-ghost btn-sm" onClick={()=>{setEmpFromDate(today());setEmpToDate(today());}}>Today</button>
+            <button className="btn btn-ghost btn-sm" onClick={()=>{const d=new Date();d.setDate(d.getDate()-6);setEmpFromDate(d.toISOString().split('T')[0]);setEmpToDate(today());}}>Last 7d</button>
+            <button className="btn btn-ghost btn-sm" onClick={()=>{const d=new Date();d.setDate(1);setEmpFromDate(d.toISOString().split('T')[0]);setEmpToDate(today());}}>This month</button>
+            {empRangeActive&&<button className="btn btn-ghost btn-sm" onClick={()=>{setEmpFromDate('');setEmpToDate('');}}>✕ All time</button>}
+            <XlBtn onClick={exportByEmployee} disabled={empHistory.length===0}/>
+          </div>
+          {empRangeActive&&(
+            <div style={{marginBottom:12,padding:'8px 14px',background:'rgba(245,200,66,.06)',border:'1px solid rgba(245,200,66,.25)',borderRadius:6,fontFamily:'var(--mono)',fontSize:10,color:'var(--accent)'}}>
+              Showing tokens: {empFromDate||'all'} → {empToDate||'all'}
+            </div>
+          )}
           {empHistory.length===0?(
-            <div className="card" style={{textAlign:'center',padding:40,color:'var(--muted)'}}>No token history found</div>
+            <div className="card" style={{textAlign:'center',padding:40,color:'var(--muted)'}}>No token history found{empRangeActive?' in selected date range':''}</div>
           ):(
             empHistory.map(e=>(
               <div key={e.id} className="card mb14">
@@ -1462,7 +1589,7 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
                   </div>
                   <div style={{textAlign:'right'}}>
                     <div style={{fontFamily:'var(--mono)',fontSize:22,color:'var(--accent2)'}}>{e.assignedToks.length}</div>
-                    <div style={{fontSize:10,color:'var(--muted)'}}>total tokens assigned</div>
+                    <div style={{fontSize:10,color:'var(--muted)'}}>{empRangeActive?'tokens in range':'total tokens'}</div>
                   </div>
                 </div>
                 <div className="g4 mb14" style={{gap:8}}>
@@ -1475,7 +1602,7 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
                     <div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--muted2)'}}>{e.paidTokens||0}</div>
                   </div>
                   <div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}>
-                    <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TOTAL EARNED</div>
+                    <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>RANGE VALUE</div>
                     <div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--accent)'}}>₹{e.totalValue.toLocaleString('en-IN')}</div>
                   </div>
                   <div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}>
@@ -1483,7 +1610,6 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
                     <div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--accent)'}}>₹{e.totalPaid.toLocaleString('en-IN')}</div>
                   </div>
                 </div>
-                {/* Token history table */}
                 <div className="tw">
                   <table>
                     <thead><tr><th>Token</th><th>Value</th><th>Assigned By</th><th>Date</th><th>Time</th></tr></thead>
@@ -1500,7 +1626,6 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
                     </tbody>
                   </table>
                 </div>
-                {/* Payout history */}
                 {e.txns.length>0&&(
                   <div style={{marginTop:12,paddingTop:12,borderTop:'1px solid var(--border)'}}>
                     <div className="ct" style={{marginBottom:8}}>Payout History</div>
@@ -1530,7 +1655,10 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
       {/* ── SUPERVISOR WISE ── */}
       {rTab==='supervisor'&&(
         <div>
-          <DateFilter/>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:0}}>
+            <div style={{flex:1,minWidth:300}}><DateFilter fromDate={fromDate} toDate={toDate} setFromDate={setFromDate} setToDate={setToDate}/></div>
+            <div style={{paddingTop:4}}><XlBtn onClick={exportSupervisor} disabled={supRows.length===0}/></div>
+          </div>
           <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:16,padding:'12px 14px',background:'var(--s2)',borderRadius:8,flexWrap:'wrap'}}>
             <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>FILTER SUPERVISOR</div>
             <select value={selSup} onChange={e=>setSelSup(e.target.value)}
@@ -1540,7 +1668,6 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
             </select>
             {selSup&&<button className="btn btn-ghost btn-sm" onClick={()=>setSelSup('')}>✕ Clear</button>}
           </div>
-          {/* Supervisor totals for period */}
           <div className="card mb14">
             <div className="ct">Supervisor performance — {fromDate} to {toDate}</div>
             <div className="tw">
@@ -1560,7 +1687,6 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
               </table>
             </div>
           </div>
-          {/* Day-by-day supervisor breakdown */}
           <div className="card">
             <div className="ct">Day-by-day supervisor log</div>
             <div className="tw">
@@ -1598,8 +1724,8 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
             </div>
             <button className="btn btn-ghost btn-sm" onClick={()=>{setTxFromDate('');setTxToDate('');}}>Show All</button>
             <button className="btn btn-ghost btn-sm" onClick={()=>{setTxFromDate(today());setTxToDate(today());}}>Today</button>
+            <XlBtn onClick={exportPayout} disabled={filteredTxns.length===0}/>
           </div>
-          {/* Summary */}
           <div className="g3 mb14">
             <div className="card"><div className="ct">Transactions</div><div className="stat-n" style={{color:'var(--accent3)'}}>{filteredTxns.length}</div><div className="stat-l">in range</div></div>
             <div className="card"><div className="ct">Tokens Paid</div><div className="stat-n" style={{color:'var(--accent2)'}}>{txTokens}</div><div className="stat-l">total</div></div>
