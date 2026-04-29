@@ -1085,7 +1085,8 @@ function TokenSearchPanel({toast}){
 // ═══════════════════════════════════════════════════
 // UNIVERSAL SCAN MODAL — details only, no assignment
 // ═══════════════════════════════════════════════════
-  const[camOpen,setCamOpen]=useState(false);
+ function UniversalScanModal({onClose, toast}) {
+   const[camOpen,setCamOpen]=useState(false);
   const[manual,setManual]=useState('');
   const[result,setResult]=useState(null);
   const[busy,setBusy]=useState(false);
