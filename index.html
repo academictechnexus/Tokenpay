@@ -270,13 +270,6 @@ const db = {
     const s=DB.supervisors.find(s=>s.qrId===qrId&&s.active);
     if(s) return Promise.resolve({role:'supervisor',name:s.name,id:s.id,qrId:s.qrId});
     return Promise.reject(new Error('Supervisor QR not recognised'));
-updateSupervisor: async (s) => {
-  await firestore.collection('supervisors').doc(s.id).set(s);
-},
-registerToken: async (tok) => {
-  await firestore.collection('tokens').doc(tok.id).set(tok);
-},
-     
   },
   getEmployees:()=>Promise.resolve([...DB.employees]),
   getEmployeeById:(id)=>Promise.resolve(DB.employees.find(e=>e.id===id.trim())||null),
@@ -284,14 +277,12 @@ registerToken: async (tok) => {
   removeEmployee:(id)=>{DB.employees=DB.employees.filter(e=>e.id!==id);return Promise.resolve();},
   getTokens:()=>Promise.resolve([...DB.tokens]),
   getToken:(id)=>Promise.resolve(DB.tokens.find(t=>t.id===id)||null),
-  // Assign token: validates supervisor QR cannot receive tokens
   assignToken:(tokenId,empId,supId,supName,sessionId)=>{
-    // Block if scanned value is a supervisor QR
     if(DB.supervisors.find(s=>s.qrId===empId||s.id===empId))
       return Promise.reject(new Error('❌ Supervisor ID detected — cannot assign token'));
     const t=DB.tokens.find(t=>t.id===tokenId);
     if(!t) return Promise.reject(new Error('Token not found: '+tokenId));
-    if(t.lockedDate===today()) return Promise.reject(new Error(`❌ Token already used today`));
+    if(t.lockedDate===today()) return Promise.reject(new Error('❌ Token already used today'));
     if(t.assignedTo&&t.lockedDate!==today()) return Promise.reject(new Error('Token locked — reset by admin required'));
     t.assignedTo=empId;t.assignedAt=nowTs();
     t.assignedBy=supName;t.assignedBySup=supId;t.sessionId=sessionId;t.lockedDate=today();
@@ -299,6 +290,46 @@ registerToken: async (tok) => {
     if(e){e.tokens.push(tokenId);e.totalTokens=(e.totalTokens||0)+1;}
     return Promise.resolve();
   },
+  payEmployee:(empId)=>{
+    const e=DB.employees.find(e=>e.id===empId);
+    if(!e) return Promise.reject(new Error('Employee not found'));
+    const tokensPaid=e.totalTokens||0;
+    const amount=tokensPaid*TOKEN_VALUE;
+    const txn={id:'TXN'+String(Date.now()).slice(-8),employeeId:empId,employeeName:e.name,tokensPaid,amount,date:today(),timestamp:nowTs()};
+    DB.transactions.push(txn);
+    DB.tokens.forEach(t=>{if(t.assignedTo===empId){t.assignedTo=null;t.assignedAt=null;t.assignedBy=null;t.assignedBySup=null;t.sessionId=null;t.lockedDate=null;}});
+    e.paidTokens=(e.paidTokens||0)+tokensPaid;
+    e.tokens=[];e.totalTokens=0;
+    return Promise.resolve({tokensPaid,amount});
+  },
+  getSupervisors:()=>Promise.resolve([...DB.supervisors]),
+  addSupervisor:(s)=>{DB.supervisors.push(s);return Promise.resolve();},
+  removeSupervisor:(id)=>{DB.supervisors=DB.supervisors.filter(s=>s.id!==id);return Promise.resolve();},
+  updateSupervisor:(s)=>{const i=DB.supervisors.findIndex(x=>x.id===s.id);if(i>=0)DB.supervisors[i]=s;return Promise.resolve();},
+  registerToken:(tok)=>{DB.tokens.push(tok);return Promise.resolve();},
+  getTransactions:()=>Promise.resolve([...DB.transactions]),
+  universalScan:async(qr)=>{
+    const val=qr.trim().toUpperCase();
+    const emp=DB.employees.find(e=>e.id===val);
+    if(emp) return{type:'employee',data:{...emp}};
+    const sup=DB.supervisors.find(s=>s.qrId===val||s.id===val);
+    if(sup){
+      const assigned=DB.tokens.filter(t=>t.assignedBySup===sup.id).length;
+      return{type:'supervisor',data:{...sup,totalAssigned:assigned}};
+    }
+    const tok=DB.tokens.find(t=>t.id===val);
+    if(tok){
+      const empData=tok.assignedTo?DB.employees.find(e=>e.id===tok.assignedTo):null;
+      return{type:'token',data:{...tok,employee:empData?{...empData}:null}};
+    }
+    return{type:'unknown',data:{qr:val}};
+  },
+};
+
+
+
+
+     
   // Payout: saves transaction, resets employee tokens
   payEmployee:(empId)=>{
     const e=DB.employees.find(e=>e.id===empId);
