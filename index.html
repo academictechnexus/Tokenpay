@@ -11,15 +11,12 @@
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 
-<!-- ═══════════════════════════════════════════════════════════
-     FIREBASE — uncomment after setup
-     ══════════════════════════════════════════════════════════ -->
-
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script>
   firebase.initializeApp({
-apiKey: "AIzaSyARLbZ_SxgLEMG3OP4Q-IIprIk8FK9-hAM",
+  apiKey: "AIzaSyARLbZ_SxgLEMG3OP4Q-IIprIk8FK9-hAM",
   authDomain: "token-pay-demo.firebaseapp.com",
   projectId: "token-pay-demo",
   storageBucket: "token-pay-demo.firebasestorage.app",
@@ -28,6 +25,8 @@ apiKey: "AIzaSyARLbZ_SxgLEMG3OP4Q-IIprIk8FK9-hAM",
   });
   const firestore = firebase.firestore();
 </script>
+
+
 <style>
 :root {
   --bg:#07070d; --s1:#10101a; --s2:#171724; --s3:#1e1e2e;
@@ -1059,6 +1058,436 @@ function UniversalScanModal({onClose,toast}){
 }
 
 // ═══════════════════════════════════════════════════
+// REPORTS PANEL — Full featured with date filters
+// ═══════════════════════════════════════════════════
+function ReportsPanel({tokens,employees,supervisors,transactions}){
+  const[rTab,setRTab]=useState('daily');
+  const[fromDate,setFromDate]=useState(today());
+  const[toDate,setToDate]=useState(today());
+  const[selEmp,setSelEmp]=useState('');
+  const[selSup,setSelSup]=useState('');
+  const[txFromDate,setTxFromDate]=useState('');
+  const[txToDate,setTxToDate]=useState('');
+
+  // ── helpers ──
+  const inRange=(date,from,to)=>{
+    if(!date) return false;
+    if(from&&date<from) return false;
+    if(to&&date>to) return false;
+    return true;
+  };
+
+  // ── DAILY SUMMARY ──
+  const dailyToks=tokens.filter(t=>t.lockedDate&&inRange(t.lockedDate,fromDate,toDate));
+  // group by date
+  const byDate={};
+  dailyToks.forEach(t=>{
+    const d=t.lockedDate;
+    if(!byDate[d]) byDate[d]={date:d,tokens:[],total:0,value:0};
+    byDate[d].tokens.push(t);
+    byDate[d].total++;
+    byDate[d].value+=(t.value||TOKEN_VALUE);
+  });
+  const dailySummaryRows=Object.values(byDate).sort((a,b)=>b.date.localeCompare(a.date));
+
+  // ── DATE VIEW — everything on selected date range ──
+  const dateViewToks=tokens.filter(t=>t.lockedDate&&inRange(t.lockedDate,fromDate,toDate));
+  const dateViewByEmp={};
+  dateViewToks.forEach(t=>{
+    if(!dateViewByEmp[t.assignedTo]) dateViewByEmp[t.assignedTo]={empId:t.assignedTo,tokens:[],value:0};
+    dateViewByEmp[t.assignedTo].tokens.push(t);
+    dateViewByEmp[t.assignedTo].value+=(t.value||TOKEN_VALUE);
+  });
+  const dateViewRows=Object.values(dateViewByEmp).map(row=>{
+    const emp=employees.find(e=>e.id===row.empId);
+    return{...row,empName:emp?emp.name:'Unknown'};
+  }).sort((a,b)=>b.tokens.length-a.tokens.length);
+
+  // ── EMPLOYEE VIEW — per employee full history ──
+  const empToks=tokens.filter(t=>t.assignedTo&&(!selEmp||t.assignedTo===selEmp));
+  const empHistory=employees
+    .filter(e=>!selEmp||e.id===selEmp)
+    .map(e=>{
+      const toks=empToks.filter(t=>t.assignedTo===e.id);
+      const totalValue=toks.reduce((s,t)=>s+(t.value||TOKEN_VALUE),0);
+      const txns=transactions.filter(t=>t.employeeId===e.id);
+      const totalPaid=txns.reduce((s,t)=>s+t.amount,0);
+      return{...e,assignedToks:toks,totalValue,txns,totalPaid};
+    })
+    .filter(e=>e.assignedToks.length>0||selEmp);
+
+  // ── SUPERVISOR VIEW ──
+  const supToks=tokens.filter(t=>t.assignedBySup&&inRange(t.lockedDate,fromDate,toDate)&&(!selSup||t.assignedBySup===selSup));
+  const supByDate={};
+  supToks.forEach(t=>{
+    const key=`${t.assignedBySup}__${t.lockedDate}`;
+    if(!supByDate[key]) supByDate[key]={supId:t.assignedBySup,supName:t.assignedBy,date:t.lockedDate,count:0,value:0};
+    supByDate[key].count++;
+    supByDate[key].value+=(t.value||TOKEN_VALUE);
+  });
+  const supRows=Object.values(supByDate).sort((a,b)=>b.date.localeCompare(a.date)||b.count-a.count);
+  const supTotals=supervisors.map(s=>{
+    const rows=supRows.filter(r=>r.supId===s.id);
+    return{...s,periodCount:rows.reduce((x,r)=>x+r.count,0),periodValue:rows.reduce((x,r)=>x+r.value,0)};
+  }).filter(s=>s.periodCount>0||!selSup);
+
+  // ── PAYOUT HISTORY ──
+  const filteredTxns=transactions.filter(t=>inRange(t.date,txFromDate||'2020-01-01',txToDate||'2099-12-31'));
+  const txTotal=filteredTxns.reduce((s,t)=>s+t.amount,0);
+  const txTokens=filteredTxns.reduce((s,t)=>s+t.tokensPaid,0);
+
+  const RTABS=[
+    {id:'daily',label:'📅 Daily Summary'},
+    {id:'date',label:'📆 By Date'},
+    {id:'employee',label:'👤 By Employee'},
+    {id:'supervisor',label:'⚡ Supervisor'},
+    {id:'payout',label:'💰 Payout History'},
+  ];
+
+  const DateFilter=()=>(
+    <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',marginBottom:16,padding:'12px 14px',background:'var(--s2)',borderRadius:8}}>
+      <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>DATE RANGE</div>
+      <div style={{display:'flex',gap:8,alignItems:'center'}}>
+        <input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)}
+          style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/>
+        <span style={{color:'var(--muted)',fontSize:11}}>to</span>
+        <input type="date" value={toDate} onChange={e=>setToDate(e.target.value)}
+          style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/>
+      </div>
+      <button className="btn btn-ghost btn-sm" onClick={()=>{setFromDate(today());setToDate(today());}}>Today</button>
+      <button className="btn btn-ghost btn-sm" onClick={()=>{
+        const d=new Date();d.setDate(d.getDate()-6);
+        setFromDate(d.toISOString().split('T')[0]);setToDate(today());
+      }}>Last 7 days</button>
+      <button className="btn btn-ghost btn-sm" onClick={()=>{
+        const d=new Date();d.setDate(1);
+        setFromDate(d.toISOString().split('T')[0]);setToDate(today());
+      }}>This month</button>
+    </div>
+  );
+
+  return(
+    <div>
+      <div className="report-header">
+        <span className="st">Reports & Analytics</span>
+        <span className="report-date">{new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</span>
+      </div>
+
+      {/* Report sub-tabs */}
+      <div style={{display:'flex',gap:4,marginBottom:18,flexWrap:'wrap'}}>
+        {RTABS.map(t=>(
+          <button key={t.id} onClick={()=>setRTab(t.id)}
+            style={{fontFamily:'var(--mono)',fontSize:10,padding:'7px 12px',borderRadius:6,border:'1px solid',cursor:'pointer',letterSpacing:.5,
+              background:rTab===t.id?'var(--accent)':'transparent',
+              borderColor:rTab===t.id?'var(--accent)':'var(--border2)',
+              color:rTab===t.id?'#07070d':'var(--muted)',transition:'all .15s'}}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── DAILY SUMMARY ── */}
+      {rTab==='daily'&&(
+        <div>
+          <DateFilter/>
+          {/* Summary stats */}
+          <div className="g4 mb14">
+            <div className="card"><div className="ct">Total Tokens</div><div className="stat-n" style={{color:'var(--accent2)'}}>{dailyToks.length}</div><div className="stat-l">in range</div></div>
+            <div className="card"><div className="ct">Total Value</div><div className="stat-n" style={{fontSize:20}}>₹{dailyToks.reduce((s,t)=>s+(t.value||TOKEN_VALUE),0).toLocaleString('en-IN')}</div><div className="stat-l">in range</div></div>
+            <div className="card"><div className="ct">Active Days</div><div className="stat-n" style={{color:'var(--accent3)'}}>{dailySummaryRows.length}</div><div className="stat-l">with activity</div></div>
+            <div className="card"><div className="ct">Avg / Day</div><div className="stat-n" style={{fontSize:20,color:'var(--accent)'}}>{dailySummaryRows.length?Math.round(dailyToks.length/dailySummaryRows.length):0}</div><div className="stat-l">tokens</div></div>
+          </div>
+          <div className="card">
+            <div className="ct">Day-by-day breakdown</div>
+            {dailySummaryRows.length===0?(
+              <div style={{textAlign:'center',padding:32,color:'var(--muted)',fontSize:13}}>No token activity in selected date range</div>
+            ):(
+              <div className="tw">
+                <table>
+                  <thead><tr><th>Date</th><th>Tokens Assigned</th><th>Total Value</th><th>Employees</th><th>Supervisors</th></tr></thead>
+                  <tbody>
+                    {dailySummaryRows.map(row=>{
+                      const empIds=[...new Set(row.tokens.map(t=>t.assignedTo))];
+                      const supIds=[...new Set(row.tokens.map(t=>t.assignedBySup).filter(Boolean))];
+                      return(
+                        <tr key={row.date}>
+                          <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>{row.date}</td>
+                          <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)',fontSize:15}}>{row.total}</span></td>
+                          <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>₹{row.value.toLocaleString('en-IN')}</td>
+                          <td><span className="badge b-yellow">{empIds.length}</span></td>
+                          <td><span className="badge b-purple">{supIds.length}</span></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── BY DATE VIEW ── */}
+      {rTab==='date'&&(
+        <div>
+          <DateFilter/>
+          <div className="card mb14">
+            <div className="sh">
+              <div className="ct" style={{margin:0}}>Employee-wise breakdown ({fromDate===toDate?fromDate:fromDate+' → '+toDate})</div>
+              <span className="badge b-yellow">{dateViewToks.length} tokens · ₹{dateViewToks.reduce((s,t)=>s+(t.value||TOKEN_VALUE),0).toLocaleString('en-IN')}</span>
+            </div>
+            {dateViewRows.length===0?(
+              <div style={{textAlign:'center',padding:32,color:'var(--muted)',fontSize:13}}>No activity in selected date range</div>
+            ):(
+              <div className="tw">
+                <table>
+                  <thead><tr><th>Employee</th><th>ID</th><th>Tokens</th><th>Value</th><th>Token IDs</th></tr></thead>
+                  <tbody>
+                    {dateViewRows.map(row=>(
+                      <tr key={row.empId}>
+                        <td>{row.empName}</td>
+                        <td className="mc" style={{color:'var(--accent)'}}>{row.empId}</td>
+                        <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)',fontSize:15}}>{row.tokens.length}</span></td>
+                        <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>₹{row.value.toLocaleString('en-IN')}</td>
+                        <td style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted2)',maxWidth:200,whiteSpace:'normal',lineHeight:1.8}}>
+                          {row.tokens.map(t=>(
+                            <span key={t.id} style={{display:'inline-block',background:'var(--s2)',border:'1px solid var(--border)',borderRadius:3,padding:'1px 5px',margin:'1px'}}>{t.id}</span>
+                          ))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          {/* Token trace for date range */}
+          <div className="card">
+            <div className="ct">Full token trace — {fromDate===toDate?fromDate:fromDate+' to '+toDate}</div>
+            <div className="tw">
+              <table>
+                <thead><tr><th>Token</th><th>Employee</th><th>Supervisor</th><th>Date</th><th>Time</th></tr></thead>
+                <tbody>
+                  {dateViewToks.length===0&&<tr><td colSpan={5} style={{textAlign:'center',color:'var(--muted)',padding:24}}>No tokens in range</td></tr>}
+                  {dateViewToks.sort((a,b)=>(b.assignedAt||'').localeCompare(a.assignedAt||'')).map(t=>(
+                    <tr key={t.id}>
+                      <td className="mc" style={{color:'var(--accent2)'}}>{t.id}</td>
+                      <td className="mc" style={{color:'var(--accent)'}}>{t.assignedTo}</td>
+                      <td style={{fontSize:11}}>{t.assignedBy||'—'} <span style={{color:'var(--accent3)',fontFamily:'var(--mono)',fontSize:9}}>({t.assignedBySup||'—'})</span></td>
+                      <td style={{fontSize:10,color:'var(--muted)'}}>{t.lockedDate}</td>
+                      <td style={{fontSize:10,color:'var(--muted)'}}>{fmtTime(t.assignedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── BY EMPLOYEE ── */}
+      {rTab==='employee'&&(
+        <div>
+          <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:16,padding:'12px 14px',background:'var(--s2)',borderRadius:8,flexWrap:'wrap'}}>
+            <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>FILTER EMPLOYEE</div>
+            <select value={selEmp} onChange={e=>setSelEmp(e.target.value)}
+              style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'6px 10px',color:'var(--text)',fontSize:12,minWidth:200}}>
+              <option value=''>All Employees</option>
+              {employees.map(e=><option key={e.id} value={e.id}>{e.name} ({e.id})</option>)}
+            </select>
+            {selEmp&&<button className="btn btn-ghost btn-sm" onClick={()=>setSelEmp('')}>✕ Clear</button>}
+          </div>
+          {empHistory.length===0?(
+            <div className="card" style={{textAlign:'center',padding:40,color:'var(--muted)'}}>No token history found</div>
+          ):(
+            empHistory.map(e=>(
+              <div key={e.id} className="card mb14">
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <div className="avt avt-y">{e.name.charAt(0)}</div>
+                    <div>
+                      <div style={{fontWeight:600,fontSize:15}}>{e.name}</div>
+                      <div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--accent)',marginTop:2}}>{e.id}</div>
+                      {e.mobile&&<div style={{fontSize:11,color:'var(--muted)',marginTop:1}}>📞 {e.mobile}</div>}
+                    </div>
+                  </div>
+                  <div style={{textAlign:'right'}}>
+                    <div style={{fontFamily:'var(--mono)',fontSize:22,color:'var(--accent2)'}}>{e.assignedToks.length}</div>
+                    <div style={{fontSize:10,color:'var(--muted)'}}>total tokens assigned</div>
+                  </div>
+                </div>
+                <div className="g4 mb14" style={{gap:8}}>
+                  <div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}>
+                    <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>PENDING</div>
+                    <div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--accent2)'}}>{e.totalTokens||0}</div>
+                  </div>
+                  <div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}>
+                    <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>PAID TOKENS</div>
+                    <div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--muted2)'}}>{e.paidTokens||0}</div>
+                  </div>
+                  <div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}>
+                    <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TOTAL EARNED</div>
+                    <div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--accent)'}}>₹{e.totalValue.toLocaleString('en-IN')}</div>
+                  </div>
+                  <div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}>
+                    <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TOTAL PAID</div>
+                    <div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--accent)'}}>₹{e.totalPaid.toLocaleString('en-IN')}</div>
+                  </div>
+                </div>
+                {/* Token history table */}
+                <div className="tw">
+                  <table>
+                    <thead><tr><th>Token</th><th>Value</th><th>Assigned By</th><th>Date</th><th>Time</th></tr></thead>
+                    <tbody>
+                      {e.assignedToks.sort((a,b)=>(b.assignedAt||'').localeCompare(a.assignedAt||'')).map(t=>(
+                        <tr key={t.id}>
+                          <td className="mc" style={{color:'var(--accent2)'}}>{t.id}</td>
+                          <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:11}}>₹{t.value||TOKEN_VALUE}</td>
+                          <td style={{fontSize:11}}>{t.assignedBy||'—'}</td>
+                          <td style={{fontSize:10,color:'var(--muted)'}}>{t.lockedDate||'—'}</td>
+                          <td style={{fontSize:10,color:'var(--muted)'}}>{fmtTime(t.assignedAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Payout history */}
+                {e.txns.length>0&&(
+                  <div style={{marginTop:12,paddingTop:12,borderTop:'1px solid var(--border)'}}>
+                    <div className="ct" style={{marginBottom:8}}>Payout History</div>
+                    <div className="tw">
+                      <table>
+                        <thead><tr><th>Txn ID</th><th>Tokens Paid</th><th>Amount</th><th>Date</th></tr></thead>
+                        <tbody>
+                          {e.txns.map(t=>(
+                            <tr key={t.id}>
+                              <td className="mc" style={{fontSize:9,color:'var(--muted2)'}}>{t.id}</td>
+                              <td className="mc" style={{color:'var(--accent2)'}}>{t.tokensPaid}</td>
+                              <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>₹{t.amount.toLocaleString('en-IN')}</td>
+                              <td style={{fontSize:10,color:'var(--muted)'}}>{t.date}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* ── SUPERVISOR WISE ── */}
+      {rTab==='supervisor'&&(
+        <div>
+          <DateFilter/>
+          <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:16,padding:'12px 14px',background:'var(--s2)',borderRadius:8,flexWrap:'wrap'}}>
+            <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>FILTER SUPERVISOR</div>
+            <select value={selSup} onChange={e=>setSelSup(e.target.value)}
+              style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'6px 10px',color:'var(--text)',fontSize:12,minWidth:200}}>
+              <option value=''>All Supervisors</option>
+              {supervisors.map(s=><option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
+            </select>
+            {selSup&&<button className="btn btn-ghost btn-sm" onClick={()=>setSelSup('')}>✕ Clear</button>}
+          </div>
+          {/* Supervisor totals for period */}
+          <div className="card mb14">
+            <div className="ct">Supervisor performance — {fromDate} to {toDate}</div>
+            <div className="tw">
+              <table>
+                <thead><tr><th>Supervisor</th><th>ID</th><th>Tokens Assigned</th><th>Total Value</th></tr></thead>
+                <tbody>
+                  {supTotals.length===0&&<tr><td colSpan={4} style={{textAlign:'center',color:'var(--muted)',padding:24}}>No activity in range</td></tr>}
+                  {supTotals.map(s=>(
+                    <tr key={s.id}>
+                      <td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="avt avt-p" style={{width:26,height:26,fontSize:10}}>{s.name.charAt(0)}</div>{s.name}</div></td>
+                      <td className="mc" style={{color:'var(--accent3)'}}>{s.id}</td>
+                      <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)',fontSize:15}}>{s.periodCount}</span></td>
+                      <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>₹{s.periodValue.toLocaleString('en-IN')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {/* Day-by-day supervisor breakdown */}
+          <div className="card">
+            <div className="ct">Day-by-day supervisor log</div>
+            <div className="tw">
+              <table>
+                <thead><tr><th>Date</th><th>Supervisor</th><th>ID</th><th>Tokens</th><th>Value</th></tr></thead>
+                <tbody>
+                  {supRows.length===0&&<tr><td colSpan={5} style={{textAlign:'center',color:'var(--muted)',padding:24}}>No activity in range</td></tr>}
+                  {supRows.map((row,i)=>(
+                    <tr key={i}>
+                      <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:11}}>{row.date}</td>
+                      <td>{row.supName||row.supId}</td>
+                      <td className="mc" style={{color:'var(--accent3)'}}>{row.supId}</td>
+                      <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{row.count}</span></td>
+                      <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:11}}>₹{row.value.toLocaleString('en-IN')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PAYOUT HISTORY ── */}
+      {rTab==='payout'&&(
+        <div>
+          <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',marginBottom:16,padding:'12px 14px',background:'var(--s2)',borderRadius:8}}>
+            <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>DATE RANGE</div>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <input type="date" value={txFromDate} onChange={e=>setTxFromDate(e.target.value)}
+                style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/>
+              <span style={{color:'var(--muted)',fontSize:11}}>to</span>
+              <input type="date" value={txToDate} onChange={e=>setTxToDate(e.target.value)}
+                style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/>
+            </div>
+            <button className="btn btn-ghost btn-sm" onClick={()=>{setTxFromDate('');setTxToDate('');}}>Show All</button>
+            <button className="btn btn-ghost btn-sm" onClick={()=>{setTxFromDate(today());setTxToDate(today());}}>Today</button>
+          </div>
+          {/* Summary */}
+          <div className="g3 mb14">
+            <div className="card"><div className="ct">Transactions</div><div className="stat-n" style={{color:'var(--accent3)'}}>{filteredTxns.length}</div><div className="stat-l">in range</div></div>
+            <div className="card"><div className="ct">Tokens Paid</div><div className="stat-n" style={{color:'var(--accent2)'}}>{txTokens}</div><div className="stat-l">total</div></div>
+            <div className="card"><div className="ct">Amount Paid</div><div className="stat-n" style={{fontSize:20}}>₹{txTotal.toLocaleString('en-IN')}</div><div className="stat-l">total</div></div>
+          </div>
+          <div className="card">
+            <div className="ct">Payment records</div>
+            {filteredTxns.length===0?(
+              <div style={{textAlign:'center',padding:32,color:'var(--muted)',fontSize:13}}>No transactions in selected range</div>
+            ):(
+              <div className="tw">
+                <table>
+                  <thead><tr><th>Txn ID</th><th>Employee</th><th>ID</th><th>Tokens Paid</th><th>Amount</th><th>Date</th><th>Time</th></tr></thead>
+                  <tbody>
+                    {filteredTxns.map(t=>(
+                      <tr key={t.id}>
+                        <td className="mc" style={{fontSize:9,color:'var(--muted2)'}}>{t.id}</td>
+                        <td>{t.employeeName}</td>
+                        <td className="mc" style={{color:'var(--accent)'}}>{t.employeeId}</td>
+                        <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{t.tokensPaid}</span></td>
+                        <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:13}}>₹{t.amount.toLocaleString('en-IN')}</td>
+                        <td style={{fontSize:10,color:'var(--muted)'}}>{t.date}</td>
+                        <td style={{fontSize:10,color:'var(--muted)'}}>{fmtTime(t.timestamp)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
 // ADMIN DASHBOARD
 // ═══════════════════════════════════════════════════
 function AdminDashboard({user,toast}){
@@ -1112,19 +1541,8 @@ function AdminDashboard({user,toast}){
     (e.mobile||'').includes(searchEmp)
   );
 
-  // ── REPORTS DATA ──
+  // ── REPORTS DATA now handled inside ReportsPanel ──
   const todayTokens=tokens.filter(t=>t.lockedDate===today());
-  const dailyByEmp=employees.map(e=>({
-    ...e,
-    todayTokens:todayTokens.filter(t=>t.assignedTo===e.id).length
-  })).filter(e=>e.todayTokens>0).sort((a,b)=>b.todayTokens-a.todayTokens);
-
-  const supPerf=supervisors.map(s=>({
-    ...s,
-    totalAssigned:tokens.filter(t=>t.assignedBySup===s.id).length,
-    todayAssigned:todayTokens.filter(t=>t.assignedBySup===s.id).length,
-  }));
-
   const TABS=['overview','employees','supervisors','tokens','register-tokens','token-search','reports','payout'];
 
   return(
@@ -1363,101 +1781,7 @@ function AdminDashboard({user,toast}){
 
       {/* ── REPORTS ── */}
       {tab==='reports'&&(
-        <div>
-          <div className="report-header">
-            <span className="st">Reports & Analytics</span>
-            <span className="report-date">As of {new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</span>
-          </div>
-
-          {/* Daily Token Report */}
-          <div className="card mb14">
-            <div className="ct">📅 Daily Token Report — {today()}</div>
-            {dailyByEmp.length===0?(
-              <div style={{textAlign:'center',padding:24,color:'var(--muted)',fontSize:12}}>No tokens assigned today</div>
-            ):(
-              <div className="tw">
-                <table>
-                  <thead><tr><th>Employee</th><th>ID</th><th>Tokens Today</th><th>Value</th></tr></thead>
-                  <tbody>
-                    {dailyByEmp.map(e=>(
-                      <tr key={e.id}>
-                        <td>{e.name}</td>
-                        <td className="mc" style={{color:'var(--accent)'}}>{e.id}</td>
-                        <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)',fontSize:14}}>{e.todayTokens}</span></td>
-                        <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>₹{(e.todayTokens*TOKEN_VALUE).toLocaleString('en-IN')}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Token Trace Report */}
-          <div className="card mb14">
-            <div className="ct">🔗 Token Trace Report</div>
-            <div className="tw">
-              <table>
-                <thead><tr><th>Token</th><th>Employee</th><th>Supervisor</th><th>Date</th><th>Time</th></tr></thead>
-                <tbody>
-                  {tokens.filter(t=>t.assignedTo).slice(0,50).map(t=>(
-                    <tr key={t.id}>
-                      <td className="mc" style={{color:'var(--accent2)'}}>{t.id}</td>
-                      <td className="mc" style={{color:'var(--accent)'}}>{t.assignedTo}</td>
-                      <td style={{fontSize:11}}>{t.assignedBy||'—'} <span style={{color:'var(--accent3)',fontFamily:'var(--mono)',fontSize:9}}>({t.assignedBySup||'—'})</span></td>
-                      <td style={{fontSize:10,color:'var(--muted)'}}>{t.lockedDate||'—'}</td>
-                      <td style={{fontSize:10,color:'var(--muted)'}}>{t.assignedAt?fmtTime(t.assignedAt):'—'}</td>
-                    </tr>
-                  ))}
-                  {tokens.filter(t=>t.assignedTo).length===0&&(
-                    <tr><td colSpan={5} style={{textAlign:'center',color:'var(--muted)',padding:24}}>No tokens assigned yet</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Employee Summary */}
-          <div className="card mb14">
-            <div className="ct">👤 Employee Summary</div>
-            <div className="tw">
-              <table>
-                <thead><tr><th>Employee</th><th>ID</th><th>Pending Tokens</th><th>Lifetime Paid</th><th>Payable Now</th></tr></thead>
-                <tbody>
-                  {employees.map(e=>(
-                    <tr key={e.id}>
-                      <td>{e.name}</td>
-                      <td className="mc" style={{color:'var(--accent)'}}>{e.id}</td>
-                      <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{e.totalTokens||0}</span></td>
-                      <td className="mc" style={{color:'var(--muted2)'}}>{e.paidTokens||0}</td>
-                      <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>₹{((e.totalTokens||0)*TOKEN_VALUE).toLocaleString('en-IN')}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Supervisor Performance */}
-          <div className="card mb14">
-            <div className="ct">⚡ Supervisor Performance</div>
-            <div className="tw">
-              <table>
-                <thead><tr><th>Supervisor</th><th>ID</th><th>Today Assigned</th><th>All Time Assigned</th></tr></thead>
-                <tbody>
-                  {supPerf.map(s=>(
-                    <tr key={s.id}>
-                      <td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="avt avt-p" style={{width:24,height:24,fontSize:9}}>{s.name.charAt(0)}</div>{s.name}</div></td>
-                      <td className="mc" style={{color:'var(--accent3)'}}>{s.id}</td>
-                      <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{s.todayAssigned}</span></td>
-                      <td><span style={{fontFamily:'var(--mono)',color:'var(--accent)'}}>{s.totalAssigned}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        <ReportsPanel tokens={tokens} employees={employees} supervisors={supervisors} transactions={transactions}/>
       )}
 
       {/* ── PAYOUT ── */}
