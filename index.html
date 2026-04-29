@@ -273,6 +273,13 @@ const db = {
     const s=DB.supervisors.find(s=>s.qrId===qrId&&s.active);
     if(s) return Promise.resolve({role:'supervisor',name:s.name,id:s.id,qrId:s.qrId});
     return Promise.reject(new Error('Supervisor QR not recognised'));
+updateSupervisor: async (s) => {
+  await firestore.collection('supervisors').doc(s.id).set(s);
+},
+registerToken: async (tok) => {
+  await firestore.collection('tokens').doc(tok.id).set(tok);
+},
+     
   },
   getEmployees:()=>Promise.resolve([...DB.employees]),
   getEmployeeById:(id)=>Promise.resolve(DB.employees.find(e=>e.id===id.trim())||null),
