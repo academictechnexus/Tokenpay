@@ -14,19 +14,21 @@
 <!-- ═══════════════════════════════════════════════════════════
      FIREBASE — uncomment after setup
      ══════════════════════════════════════════════════════════ -->
+
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script>
-  const firebaseConfig = {
-  apiKey: "AIzaSyARLbZ_SxgLEMG3OP4Q-IIprIk8FK9-hAM",
+  firebase.initializeApp({
+apiKey: "AIzaSyARLbZ_SxgLEMG3OP4Q-IIprIk8FK9-hAM",
   authDomain: "token-pay-demo.firebaseapp.com",
   projectId: "token-pay-demo",
   storageBucket: "token-pay-demo.firebasestorage.app",
   messagingSenderId: "985204049286",
   appId: "1:985204049286:web:73adf84187a7bcec0e9807"
-};
+  });
   const firestore = firebase.firestore();
 </script>
+-->
 
 <style>
 :root {
@@ -228,111 +230,164 @@ const {useState,useEffect,useRef,useCallback} = React;
 
 const TOKEN_VALUE = 100; // ₹ per token
 
-// ═══════════════════════════════════════════════════
-// DEMO DATA — Uses EMP001 format as per requirements
-// ═══════════════════════════════════════════════════
-let DB = (() => {
-  const employees = [
-    {id:'EMP001',name:'Arun Kumar',mobile:'9876543210',tokens:[],totalTokens:5,paidTokens:42,createdAt:'2026-01-10'},
-    {id:'EMP002',name:'Priya Sharma',mobile:'9123456789',tokens:[],totalTokens:3,paidTokens:38,createdAt:'2026-01-10'},
-    {id:'EMP003',name:'Karthik R',mobile:'',tokens:[],totalTokens:7,paidTokens:55,createdAt:'2026-01-11'},
-    {id:'EMP004',name:'Deepa M',mobile:'9988776655',tokens:[],totalTokens:2,paidTokens:30,createdAt:'2026-01-12'},
-    {id:'EMP005',name:'Suresh P',mobile:'',tokens:[],totalTokens:9,paidTokens:61,createdAt:'2026-01-12'},
-  ];
-  const tokens = [];
-  const supervisors = [
-    {id:'SUP001',name:'Supervisor Alpha',username:'sup1',password:'pass1',qrId:'SUP001',active:true},
-    {id:'SUP002',name:'Supervisor Beta',username:'sup2',password:'pass2',qrId:'SUP002',active:true},
-  ];
-  // transactions: {id, employeeId, employeeName, tokensPaid, amount, date, timestamp}
-  const transactions = [];
-  return {employees,tokens,supervisors,transactions};
-})();
-
 const today = () => new Date().toISOString().split('T')[0];
 const nowTs = () => new Date().toISOString();
 const fmtTime = (ts) => ts ? new Date(ts).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN') : '—';
 
 // ═══════════════════════════════════════════════════
-// DB API (demo — swap with Firestore in production)
+// DB API — Firebase Firestore (persistent)
 // ═══════════════════════════════════════════════════
 const db = {
-  login:(u,p)=>{
-    if(u==='admin'&&p==='admin123') return Promise.resolve({role:'admin',name:'Administrator',id:'ADMIN'});
-    const s=DB.supervisors.find(s=>s.username===u&&s.password===p&&s.active);
-    if(s) return Promise.resolve({role:'supervisor',name:s.name,id:s.id,qrId:s.qrId});
-    return Promise.reject(new Error('Invalid credentials'));
+  login: async (u, p) => {
+    if (u === 'admin' && p === 'admin123')
+      return { role: 'admin', name: 'Administrator', id: 'ADMIN' };
+    const snap = await firestore.collection('supervisors')
+      .where('username', '==', u).where('password', '==', p).where('active', '==', true).get();
+    if (snap.empty) throw new Error('Invalid credentials');
+    const s = snap.docs[0].data();
+    return { role: 'supervisor', name: s.name, id: s.id, qrId: s.qrId };
   },
-  loginByQR:(qrId)=>{
-    const s=DB.supervisors.find(s=>s.qrId===qrId&&s.active);
-    if(s) return Promise.resolve({role:'supervisor',name:s.name,id:s.id,qrId:s.qrId});
-    return Promise.reject(new Error('Supervisor QR not recognised'));
+
+  loginByQR: async (qrId) => {
+    const snap = await firestore.collection('supervisors')
+      .where('qrId', '==', qrId.trim().toUpperCase()).where('active', '==', true).get();
+    if (snap.empty) throw new Error('Supervisor QR not recognised');
+    const s = snap.docs[0].data();
+    return { role: 'supervisor', name: s.name, id: s.id, qrId: s.qrId };
   },
-  getEmployees:()=>Promise.resolve([...DB.employees]),
-  getEmployeeById:(id)=>Promise.resolve(DB.employees.find(e=>e.id===id.trim())||null),
-  addEmployee:(emp)=>{DB.employees.push(emp);return Promise.resolve();},
-  removeEmployee:(id)=>{DB.employees=DB.employees.filter(e=>e.id!==id);return Promise.resolve();},
-  getTokens:()=>Promise.resolve([...DB.tokens]),
-  getToken:(id)=>Promise.resolve(DB.tokens.find(t=>t.id===id)||null),
-  // Assign token: validates supervisor QR cannot receive tokens
-  assignToken:(tokenId,empId,supId,supName,sessionId)=>{
-    // Block if scanned value is a supervisor QR
-    if(DB.supervisors.find(s=>s.qrId===empId||s.id===empId))
-      return Promise.reject(new Error('❌ Supervisor ID detected — cannot assign token'));
-    const t=DB.tokens.find(t=>t.id===tokenId);
-    if(!t) return Promise.reject(new Error('Token not found: '+tokenId));
-    if(t.lockedDate===today()) return Promise.reject(new Error(`❌ Token already used today`));
-    if(t.assignedTo&&t.lockedDate!==today()) return Promise.reject(new Error('Token locked — reset by admin required'));
-    t.assignedTo=empId;t.assignedAt=nowTs();
-    t.assignedBy=supName;t.assignedBySup=supId;t.sessionId=sessionId;t.lockedDate=today();
-    const e=DB.employees.find(e=>e.id===empId);
-    if(e){e.tokens.push(tokenId);e.totalTokens=(e.totalTokens||0)+1;}
-    return Promise.resolve();
+
+  getEmployees: async () => {
+    const snap = await firestore.collection('employees').orderBy('name').get();
+    return snap.docs.map(d => d.data());
   },
-  // Payout: saves transaction, resets employee tokens
-  payEmployee:(empId)=>{
-    const e=DB.employees.find(e=>e.id===empId);
-    if(!e) return Promise.reject(new Error('Employee not found'));
-    const tokensPaid=e.totalTokens||0;
-    const amount=tokensPaid*TOKEN_VALUE;
-    const txn={
-      id:'TXN'+String(Date.now()).slice(-8),
-      employeeId:empId,employeeName:e.name,
-      tokensPaid,amount,date:today(),timestamp:nowTs()
-    };
-    DB.transactions.push(txn);
-    // release tokens assigned to this employee
-    DB.tokens.forEach(t=>{if(t.assignedTo===empId){t.assignedTo=null;t.assignedAt=null;t.assignedBy=null;t.assignedBySup=null;t.sessionId=null;t.lockedDate=null;}});
-    e.paidTokens=(e.paidTokens||0)+tokensPaid;
-    e.tokens=[];e.totalTokens=0;
-    return Promise.resolve({tokensPaid,amount});
+
+  getEmployeeById: async (id) => {
+    const doc = await firestore.collection('employees').doc(id.trim().toUpperCase()).get();
+    return doc.exists ? doc.data() : null;
   },
-  getSupervisors:()=>Promise.resolve([...DB.supervisors]),
-  addSupervisor:(s)=>{DB.supervisors.push(s);return Promise.resolve();},
-  removeSupervisor:(id)=>{DB.supervisors=DB.supervisors.filter(s=>s.id!==id);return Promise.resolve();},
-  updateSupervisor:(s)=>{const i=DB.supervisors.findIndex(x=>x.id===s.id);if(i>=0)DB.supervisors[i]=s;return Promise.resolve();},
-  registerToken:(tok)=>{DB.tokens.push(tok);return Promise.resolve();},
-  getTransactions:()=>Promise.resolve([...DB.transactions]),
-  // Universal scan — identify any QR
-  universalScan:async(qr)=>{
-    const val=qr.trim().toUpperCase();
-    // Employee?
-    const emp=DB.employees.find(e=>e.id===val);
-    if(emp) return{type:'employee',data:{...emp}};
-    // Supervisor?
-    const sup=DB.supervisors.find(s=>s.qrId===val||s.id===val);
-    if(sup){
-      const assigned=DB.tokens.filter(t=>t.assignedBySup===sup.id).length;
-      return{type:'supervisor',data:{...sup,totalAssigned:assigned}};
+
+  addEmployee: async (emp) => {
+    await firestore.collection('employees').doc(emp.id).set(emp);
+  },
+
+  updateEmployee: async (emp) => {
+    await firestore.collection('employees').doc(emp.id).set(emp, { merge: true });
+  },
+
+  removeEmployee: async (id) => {
+    await firestore.collection('employees').doc(id).delete();
+  },
+
+  getTokens: async () => {
+    const snap = await firestore.collection('tokens').get();
+    return snap.docs.map(d => d.data());
+  },
+
+  getToken: async (id) => {
+    const doc = await firestore.collection('tokens').doc(id.trim().toUpperCase()).get();
+    return doc.exists ? doc.data() : null;
+  },
+
+  registerToken: async (tok) => {
+    await firestore.collection('tokens').doc(tok.id).set(tok);
+  },
+
+  updateToken: async (tok) => {
+    await firestore.collection('tokens').doc(tok.id).set(tok, { merge: true });
+  },
+
+  assignToken: async (tokenId, empId, supId, supName, sessionId) => {
+    // Block supervisor QR
+    const supSnap = await firestore.collection('supervisors').where('qrId', '==', empId).get();
+    if (!supSnap.empty) throw new Error('❌ Supervisor ID detected — cannot assign token');
+    const tokRef = firestore.collection('tokens').doc(tokenId);
+    const tokDoc = await tokRef.get();
+    if (!tokDoc.exists) throw new Error('Token not registered: ' + tokenId + ' — ask admin to register it first');
+    const t = tokDoc.data();
+    if (t.lockedDate === today()) throw new Error('❌ Token already used today');
+    await tokRef.set({
+      ...t,
+      assignedTo: empId, assignedAt: nowTs(),
+      assignedBy: supName, assignedBySup: supId,
+      sessionId, lockedDate: today()
+    });
+    const empRef = firestore.collection('employees').doc(empId);
+    await empRef.update({
+      tokens: firebase.firestore.FieldValue.arrayUnion(tokenId),
+      totalTokens: firebase.firestore.FieldValue.increment(1)
+    });
+  },
+
+  payEmployee: async (empId) => {
+    const empRef = firestore.collection('employees').doc(empId);
+    const empDoc = await empRef.get();
+    if (!empDoc.exists) throw new Error('Employee not found');
+    const e = empDoc.data();
+    const tokensPaid = e.totalTokens || 0;
+    const amount = tokensPaid * (e.tokenValue || TOKEN_VALUE);
+    const txnId = 'TXN' + Date.now();
+    await firestore.collection('transactions').doc(txnId).set({
+      id: txnId, employeeId: empId, employeeName: e.name,
+      tokensPaid, amount, date: today(), timestamp: nowTs()
+    });
+    const tokSnap = await firestore.collection('tokens').where('assignedTo', '==', empId).get();
+    const batch = firestore.batch();
+    tokSnap.docs.forEach(d => batch.update(d.ref, {
+      assignedTo: null, assignedAt: null, assignedBy: null,
+      assignedBySup: null, sessionId: null, lockedDate: null
+    }));
+    batch.update(empRef, {
+      tokens: [], totalTokens: 0,
+      paidTokens: firebase.firestore.FieldValue.increment(tokensPaid)
+    });
+    await batch.commit();
+    return { tokensPaid, amount };
+  },
+
+  getSupervisors: async () => {
+    const snap = await firestore.collection('supervisors').get();
+    return snap.docs.map(d => d.data());
+  },
+
+  addSupervisor: async (s) => {
+    await firestore.collection('supervisors').doc(s.id).set(s);
+  },
+
+  updateSupervisor: async (s) => {
+    await firestore.collection('supervisors').doc(s.id).set(s, { merge: true });
+  },
+
+  removeSupervisor: async (id) => {
+    await firestore.collection('supervisors').doc(id).delete();
+  },
+
+  getTransactions: async () => {
+    const snap = await firestore.collection('transactions').orderBy('timestamp', 'desc').get();
+    return snap.docs.map(d => d.data());
+  },
+
+  universalScan: async (qr) => {
+    const val = qr.trim().toUpperCase();
+    const empDoc = await firestore.collection('employees').doc(val).get();
+    if (empDoc.exists) return { type: 'employee', data: empDoc.data() };
+    const supSnap = await firestore.collection('supervisors').where('qrId', '==', val).get();
+    if (!supSnap.empty) {
+      const s = supSnap.docs[0].data();
+      const tokSnap = await firestore.collection('tokens').where('assignedBySup', '==', s.id).get();
+      return { type: 'supervisor', data: { ...s, totalAssigned: tokSnap.size } };
     }
-    // Token?
-    const tok=DB.tokens.find(t=>t.id===val);
-    if(tok){
-      const empData=tok.assignedTo?DB.employees.find(e=>e.id===tok.assignedTo):null;
-      return{type:'token',data:{...tok,employee:empData?{...empData}:null}};
+    const tokDoc = await firestore.collection('tokens').doc(val).get();
+    if (tokDoc.exists) {
+      const t = tokDoc.data();
+      let employee = null;
+      if (t.assignedTo) {
+        const ed = await firestore.collection('employees').doc(t.assignedTo).get();
+        if (ed.exists) employee = ed.data();
+      }
+      return { type: 'token', data: { ...t, employee } };
     }
-    return{type:'unknown',data:{qr:val}};
+    return { type: 'unknown', data: { qr: val } };
   },
 };
 
@@ -620,8 +675,81 @@ function AddSupervisorModal({onClose,onSaved,toast}){
 }
 
 // ═══════════════════════════════════════════════════
-// EDIT SUPERVISOR MODAL (Admin only)
+// EDIT EMPLOYEE MODAL
 // ═══════════════════════════════════════════════════
+function EditEmployeeModal({emp,onClose,onSaved,toast}){
+  const[form,setForm]=useState({name:emp.name||'',mobile:emp.mobile||''});
+  const[busy,setBusy]=useState(false);
+  const save=async()=>{
+    if(!form.name){toast.show('Name is required','error');return;}
+    setBusy(true);
+    try{
+      await db.updateEmployee({...emp,name:form.name,mobile:form.mobile});
+      toast.show('Employee updated!','success');
+      onSaved();onClose();
+    }catch(e){toast.show(e.message,'error');}finally{setBusy(false);}
+  };
+  return(
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-title">✏️ Edit Employee</div>
+        <div className="verify-badge vb-info" style={{marginBottom:16}}>QR ID: {emp.id}</div>
+        <div className="fg"><label>Full Name *</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} autoFocus/></div>
+        <div className="fg"><label>Mobile</label><input value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="10-digit number" maxLength={10}/></div>
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={save} disabled={busy}>{busy?'Saving...':'✓ Save Changes'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
+// EDIT TOKEN MODAL
+// ═══════════════════════════════════════════════════
+function EditTokenModal({tok,onClose,onSaved,toast}){
+  const[form,setForm]=useState({value:tok.value||TOKEN_VALUE});
+  const[busy,setBusy]=useState(false);
+  const save=async()=>{
+    if(!form.value||isNaN(form.value)||Number(form.value)<=0){toast.show('Enter a valid token value','error');return;}
+    setBusy(true);
+    try{
+      await db.updateToken({...tok,value:Number(form.value)});
+      toast.show('Token updated!','success');
+      onSaved();onClose();
+    }catch(e){toast.show(e.message,'error');}finally{setBusy(false);}
+  };
+  return(
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-title">✏️ Edit Token</div>
+        <div className="verify-badge vb-info" style={{marginBottom:16}}>Token ID: {tok.id}</div>
+        <div style={{padding:12,background:'var(--s2)',borderRadius:8,marginBottom:14,fontSize:12}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+            <span style={{color:'var(--muted)'}}>Status</span>
+            <span className={`badge ${tok.assignedTo?'b-green':'b-gray'}`}>{tok.assignedTo?'Assigned':'Free'}</span>
+          </div>
+          {tok.assignedTo&&<div style={{display:'flex',justifyContent:'space-between'}}>
+            <span style={{color:'var(--muted)'}}>Assigned To</span>
+            <span style={{fontFamily:'var(--mono)',color:'var(--accent)'}}>{tok.assignedTo}</span>
+          </div>}
+        </div>
+        <div className="fg">
+          <label>Token Value (₹) *</label>
+          <input type="number" value={form.value} onChange={e=>setForm({...form,value:e.target.value})} min="1" autoFocus/>
+          <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>Current: ₹{tok.value||TOKEN_VALUE} · Default: ₹{TOKEN_VALUE}</div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={save} disabled={busy}>{busy?'Saving...':'✓ Save Changes'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function EditSupervisorModal({sup,onClose,onSaved,toast}){
   const[form,setForm]=useState({name:sup.name||'',mobile:sup.mobile||'',username:sup.username||'',password:''});
   const[busy,setBusy]=useState(false);
@@ -946,6 +1074,8 @@ function AdminDashboard({user,toast}){
   const[showScan,setShowScan]=useState(false);
   const[showRegToken,setShowRegToken]=useState(false);
   const[editSup,setEditSup]=useState(null);
+  const[editEmp,setEditEmp]=useState(null);
+  const[editTok,setEditTok]=useState(null);
   const[payoutEmp,setPayoutEmp]=useState(null);
   const[searchEmp,setSearchEmp]=useState('');
   const[searchTok,setSearchTok]=useState('');
@@ -1080,6 +1210,7 @@ function AdminDashboard({user,toast}){
                       <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>₹{((e.totalTokens||0)*TOKEN_VALUE).toLocaleString('en-IN')}</td>
                       <td>
                         <div style={{display:'flex',gap:6}}>
+                          <button className="btn btn-ghost btn-sm" onClick={()=>setEditEmp(e)}>✏️ Edit</button>
                           <button className="btn btn-warn btn-sm" onClick={()=>setPayoutEmp(e)}>Pay & Reset</button>
                           <button className="btn btn-danger btn-sm" onClick={()=>handleRemoveEmp(e.id,e.name)}>Remove</button>
                         </div>
@@ -1176,10 +1307,10 @@ function AdminDashboard({user,toast}){
           <div className="card">
             <div className="tw">
               <table>
-                <thead><tr><th>Token ID</th><th>Value (₹)</th><th>Status</th><th>Assigned To</th><th>Assigned By</th><th>Date</th></tr></thead>
+                <thead><tr><th>Token ID</th><th>Value (₹)</th><th>Status</th><th>Assigned To</th><th>Assigned By</th><th>Date</th><th>Action</th></tr></thead>
                 <tbody>
                   {tokens.length===0&&(
-                    <tr><td colSpan={6} style={{textAlign:'center',color:'var(--muted)',padding:32}}>No tokens registered yet. Click "+ Register Token" to add.</td></tr>
+                    <tr><td colSpan={7} style={{textAlign:'center',color:'var(--muted)',padding:32}}>No tokens registered yet. Click "+ Register Token" to add.</td></tr>
                   )}
                   {[...tokens].reverse().map(t=>(
                     <tr key={t.id}>
@@ -1189,6 +1320,7 @@ function AdminDashboard({user,toast}){
                       <td className="mc" style={{color:'var(--accent)'}}>{t.assignedTo||'—'}</td>
                       <td style={{fontSize:11,color:'var(--muted2)'}}>{t.assignedBy||'—'}</td>
                       <td style={{fontSize:10,color:'var(--muted)'}}>{t.lockedDate||'—'}</td>
+                      <td><button className="btn btn-ghost btn-sm" onClick={()=>setEditTok(t)}>✏️ Edit</button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -1397,6 +1529,8 @@ function AdminDashboard({user,toast}){
       {showAddSup&&<AddSupervisorModal onClose={()=>setShowAddSup(false)} onSaved={load} toast={toast}/>}
       {showScan&&<UniversalScanModal onClose={()=>setShowScan(false)} toast={toast}/>}
       {showRegToken&&<RegisterTokenModal onClose={()=>setShowRegToken(false)} onSaved={load} toast={toast}/>}
+      {editEmp&&<EditEmployeeModal emp={editEmp} onClose={()=>setEditEmp(null)} onSaved={load} toast={toast}/>}
+      {editTok&&<EditTokenModal tok={editTok} onClose={()=>setEditTok(null)} onSaved={load} toast={toast}/>}
       {editSup&&<EditSupervisorModal sup={editSup} onClose={()=>setEditSup(null)} onSaved={load} toast={toast}/>}
       {payoutEmp&&<PayoutModal emp={payoutEmp} onClose={()=>setPayoutEmp(null)} onDone={load} toast={toast}/>}
     </div>
@@ -1611,7 +1745,7 @@ function App(){
             </div>
           </div>
           <div className="main">
-            <div className="demo-banner">⚡ DEMO MODE — Connect Firebase to persist data. Camera QR scanning needs HTTPS.</div>
+            <div className="demo-banner">⚡ TOKENPAY LIVE — Powered by Firebase · {new Date().toLocaleDateString('en-IN')}</div>
             {user.role==='admin'
               ?<AdminDashboard user={user} toast={toast}/>
               :<SupervisorPanel user={user} toast={toast}/>
