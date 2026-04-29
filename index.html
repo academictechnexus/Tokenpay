@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>TokenPay v4</title>
+<title>TokenPay v5</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -11,20 +11,24 @@
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 
+<!-- ═══════════════════════════════════════════════════════════
+     FIREBASE — uncomment after setup
+     ══════════════════════════════════════════════════════════ -->
+<!--
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script>
   firebase.initializeApp({
-apiKey: "AIzaSyARLbZ_SxgLEMG3OP4Q-IIprIk8FK9-hAM",
-  authDomain: "token-pay-demo.firebaseapp.com",
-  projectId: "token-pay-demo",
-  storageBucket: "token-pay-demo.firebasestorage.app",
-  messagingSenderId: "985204049286",
-  appId: "1:985204049286:web:73adf84187a7bcec0e9807"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
   });
   const firestore = firebase.firestore();
 </script>
-
+-->
 
 <style>
 :root {
@@ -259,156 +263,84 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN') : '—';
 // DB API (demo — swap with Firestore in production)
 // ═══════════════════════════════════════════════════
 const db = {
-  login: async (u, p) => {
-    if (u === 'admin' && p === 'admin123')
-      return { role: 'admin', name: 'Administrator', id: 'ADMIN' };
-    const snap = await firestore.collection('supervisors')
-      .where('username', '==', u).where('password', '==', p).where('active', '==', true).get();
-    if (snap.empty) throw new Error('Invalid credentials');
-    const s = snap.docs[0].data();
-    return { role: 'supervisor', name: s.name, id: s.id, qrId: s.qrId };
+  login:(u,p)=>{
+    if(u==='admin'&&p==='admin123') return Promise.resolve({role:'admin',name:'Administrator',id:'ADMIN'});
+    const s=DB.supervisors.find(s=>s.username===u&&s.password===p&&s.active);
+    if(s) return Promise.resolve({role:'supervisor',name:s.name,id:s.id,qrId:s.qrId});
+    return Promise.reject(new Error('Invalid credentials'));
   },
-
-  loginByQR: async (qrId) => {
-    const snap = await firestore.collection('supervisors')
-      .where('qrId', '==', qrId).where('active', '==', true).get();
-    if (snap.empty) throw new Error('Supervisor QR not recognised');
-    const s = snap.docs[0].data();
-    return { role: 'supervisor', name: s.name, id: s.id, qrId: s.qrId };
+  loginByQR:(qrId)=>{
+    const s=DB.supervisors.find(s=>s.qrId===qrId&&s.active);
+    if(s) return Promise.resolve({role:'supervisor',name:s.name,id:s.id,qrId:s.qrId});
+    return Promise.reject(new Error('Supervisor QR not recognised'));
   },
-
-  getEmployees: async () => {
-    const snap = await firestore.collection('employees').get();
-    return snap.docs.map(d => d.data());
+  getEmployees:()=>Promise.resolve([...DB.employees]),
+  getEmployeeById:(id)=>Promise.resolve(DB.employees.find(e=>e.id===id.trim())||null),
+  addEmployee:(emp)=>{DB.employees.push(emp);return Promise.resolve();},
+  removeEmployee:(id)=>{DB.employees=DB.employees.filter(e=>e.id!==id);return Promise.resolve();},
+  getTokens:()=>Promise.resolve([...DB.tokens]),
+  getToken:(id)=>Promise.resolve(DB.tokens.find(t=>t.id===id)||null),
+  // Assign token: validates supervisor QR cannot receive tokens
+  assignToken:(tokenId,empId,supId,supName,sessionId)=>{
+    // Block if scanned value is a supervisor QR
+    if(DB.supervisors.find(s=>s.qrId===empId||s.id===empId))
+      return Promise.reject(new Error('❌ Supervisor ID detected — cannot assign token'));
+    const t=DB.tokens.find(t=>t.id===tokenId);
+    if(!t) return Promise.reject(new Error('Token not found: '+tokenId));
+    if(t.lockedDate===today()) return Promise.reject(new Error(`❌ Token already used today`));
+    if(t.assignedTo&&t.lockedDate!==today()) return Promise.reject(new Error('Token locked — reset by admin required'));
+    t.assignedTo=empId;t.assignedAt=nowTs();
+    t.assignedBy=supName;t.assignedBySup=supId;t.sessionId=sessionId;t.lockedDate=today();
+    const e=DB.employees.find(e=>e.id===empId);
+    if(e){e.tokens.push(tokenId);e.totalTokens=(e.totalTokens||0)+1;}
+    return Promise.resolve();
   },
-
-  getEmployeeById: async (id) => {
-    const doc = await firestore.collection('employees').doc(id).get();
-    return doc.exists ? doc.data() : null;
+  // Payout: saves transaction, resets employee tokens
+  payEmployee:(empId)=>{
+    const e=DB.employees.find(e=>e.id===empId);
+    if(!e) return Promise.reject(new Error('Employee not found'));
+    const tokensPaid=e.totalTokens||0;
+    const amount=tokensPaid*TOKEN_VALUE;
+    const txn={
+      id:'TXN'+String(Date.now()).slice(-8),
+      employeeId:empId,employeeName:e.name,
+      tokensPaid,amount,date:today(),timestamp:nowTs()
+    };
+    DB.transactions.push(txn);
+    // release tokens assigned to this employee
+    DB.tokens.forEach(t=>{if(t.assignedTo===empId){t.assignedTo=null;t.assignedAt=null;t.assignedBy=null;t.assignedBySup=null;t.sessionId=null;t.lockedDate=null;}});
+    e.paidTokens=(e.paidTokens||0)+tokensPaid;
+    e.tokens=[];e.totalTokens=0;
+    return Promise.resolve({tokensPaid,amount});
   },
-
-  addEmployee: async (emp) => {
-    await firestore.collection('employees').doc(emp.id).set(emp);
-  },
-
-  removeEmployee: async (id) => {
-    await firestore.collection('employees').doc(id).delete();
-  },
-
-  getTokens: async () => {
-    const snap = await firestore.collection('tokens').get();
-    return snap.docs.map(d => d.data());
-  },
-
-  getToken: async (id) => {
-    const doc = await firestore.collection('tokens').doc(id).get();
-    return doc.exists ? doc.data() : null;
-  },
-
-  assignToken: async (tokenId, empId, supId, supName, sessionId) => {
-    const supSnap = await firestore.collection('supervisors')
-      .where('qrId', '==', empId).get();
-    if (!supSnap.empty) throw new Error('❌ Supervisor ID detected — cannot assign token');
-
-    const tokRef = firestore.collection('tokens').doc(tokenId);
-    const tokDoc = await tokRef.get();
-    if (!tokDoc.exists) throw new Error('Token not found: ' + tokenId);
-    const t = tokDoc.data();
-    const todayStr = new Date().toISOString().split('T')[0];
-    if (t.lockedDate === todayStr) throw new Error('❌ Token already used today');
-
-    await tokRef.set({
-      id: tokenId, assignedTo: empId, assignedAt: new Date().toISOString(),
-      assignedBy: supName, assignedBySup: supId,
-      sessionId, lockedDate: todayStr
-    });
-
-    const empRef = firestore.collection('employees').doc(empId);
-    await empRef.update({
-      tokens: firebase.firestore.FieldValue.arrayUnion(tokenId),
-      totalTokens: firebase.firestore.FieldValue.increment(1)
-    });
-  },
-
-  payEmployee: async (empId) => {
-    const empRef = firestore.collection('employees').doc(empId);
-    const empDoc = await empRef.get();
-    if (!empDoc.exists) throw new Error('Employee not found');
-    const e = empDoc.data();
-    const tokensPaid = e.totalTokens || 0;
-    const amount = tokensPaid * 100;
-
-    // Save transaction
-    const txnId = 'TXN' + Date.now();
-    await firestore.collection('transactions').doc(txnId).set({
-      id: txnId, employeeId: empId, employeeName: e.name,
-      tokensPaid, amount, date: new Date().toISOString().split('T')[0],
-      timestamp: new Date().toISOString()
-    });
-
-    // Release tokens
-    const tokSnap = await firestore.collection('tokens')
-      .where('assignedTo', '==', empId).get();
-    const batch = firestore.batch();
-    tokSnap.docs.forEach(d => batch.update(d.ref, {
-      assignedTo: null, assignedAt: null, assignedBy: null,
-      assignedBySup: null, sessionId: null, lockedDate: null
-    }));
-    batch.update(empRef, {
-      tokens: [], totalTokens: 0,
-      paidTokens: firebase.firestore.FieldValue.increment(tokensPaid)
-    });
-    await batch.commit();
-    return { tokensPaid, amount };
-  },
-
-  getSupervisors: async () => {
-    const snap = await firestore.collection('supervisors').get();
-    return snap.docs.map(d => d.data());
-  },
-
-  addSupervisor: async (s) => {
-    await firestore.collection('supervisors').doc(s.id).set(s);
-  },
-
-  removeSupervisor: async (id) => {
-    await firestore.collection('supervisors').doc(id).delete();
-  },
-
-  getTransactions: async () => {
-    const snap = await firestore.collection('transactions')
-      .orderBy('timestamp', 'desc').get();
-    return snap.docs.map(d => d.data());
-  },
-
-  universalScan: async (qr) => {
-    const val = qr.trim().toUpperCase();
-    const empDoc = await firestore.collection('employees').doc(val).get();
-    if (empDoc.exists) return { type: 'employee', data: empDoc.data() };
-
-    const supSnap = await firestore.collection('supervisors')
-      .where('qrId', '==', val).get();
-    if (!supSnap.empty) {
-      const s = supSnap.docs[0].data();
-      const tokSnap = await firestore.collection('tokens')
-        .where('assignedBySup', '==', s.id).get();
-      return { type: 'supervisor', data: { ...s, totalAssigned: tokSnap.size } };
+  getSupervisors:()=>Promise.resolve([...DB.supervisors]),
+  addSupervisor:(s)=>{DB.supervisors.push(s);return Promise.resolve();},
+  removeSupervisor:(id)=>{DB.supervisors=DB.supervisors.filter(s=>s.id!==id);return Promise.resolve();},
+  updateSupervisor:(s)=>{const i=DB.supervisors.findIndex(x=>x.id===s.id);if(i>=0)DB.supervisors[i]=s;return Promise.resolve();},
+  registerToken:(tok)=>{DB.tokens.push(tok);return Promise.resolve();},
+  getTransactions:()=>Promise.resolve([...DB.transactions]),
+  // Universal scan — identify any QR
+  universalScan:async(qr)=>{
+    const val=qr.trim().toUpperCase();
+    // Employee?
+    const emp=DB.employees.find(e=>e.id===val);
+    if(emp) return{type:'employee',data:{...emp}};
+    // Supervisor?
+    const sup=DB.supervisors.find(s=>s.qrId===val||s.id===val);
+    if(sup){
+      const assigned=DB.tokens.filter(t=>t.assignedBySup===sup.id).length;
+      return{type:'supervisor',data:{...sup,totalAssigned:assigned}};
     }
-
-    const tokDoc = await firestore.collection('tokens').doc(val).get();
-    if (tokDoc.exists) {
-      const t = tokDoc.data();
-      let employee = null;
-      if (t.assignedTo) {
-        const ed = await firestore.collection('employees').doc(t.assignedTo).get();
-        if (ed.exists) employee = ed.data();
-      }
-      return { type: 'token', data: { ...t, employee } };
+    // Token?
+    const tok=DB.tokens.find(t=>t.id===val);
+    if(tok){
+      const empData=tok.assignedTo?DB.employees.find(e=>e.id===tok.assignedTo):null;
+      return{type:'token',data:{...tok,employee:empData?{...empData}:null}};
     }
-
-    return { type: 'unknown', data: { qr: val } };
-  }
+    return{type:'unknown',data:{qr:val}};
+  },
 };
+
 // ═══════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════
@@ -484,7 +416,7 @@ function Login({onLogin}){
     <div className="login-wrap">
       <div className="login-card">
         <div className="login-logo">⬡ TOKENPAY</div>
-        <div className="login-sub">Workforce Token System v4</div>
+        <div className="login-sub">Workforce Token System v5</div>
         {camOpen?(
           <CamScanner onScan={handleQR} onClose={()=>setCamOpen(false)} label="Scan supervisor QR ID card..."/>
         ):(
@@ -503,31 +435,39 @@ function Login({onLogin}){
 }
 
 // ═══════════════════════════════════════════════════
-// ADD EMPLOYEE MODAL
+// ADD EMPLOYEE MODAL — QR scan MANDATORY
 // ═══════════════════════════════════════════════════
 function AddEmployeeModal({onClose,onSaved,toast}){
   const[form,setForm]=useState({id:'',name:'',mobile:''});
+  const[qrScanned,setQrScanned]=useState(false); // QR must be scanned first
   const[busy,setBusy]=useState(false);
   const[camOpen,setCamOpen]=useState(false);
 
   const handleQRScan=async(val)=>{
     setCamOpen(false);
     const qr=val.trim().toUpperCase();
-    if(DB.supervisors.find(s=>s.qrId===qr||s.id===qr)){toast.show('That QR belongs to a supervisor!','error');return;}
+    // Check not a supervisor QR
+    const sups=await db.getSupervisors();
+    if(sups.find(s=>s.qrId===qr||s.id===qr)){toast.show('That QR belongs to a supervisor!','error');return;}
+    // Check not already registered
     const existing=await db.getEmployeeById(qr);
-    if(existing){toast.show('Employee already registered: '+existing.name,'error');return;}
+    if(existing){toast.show('QR already registered to: '+existing.name,'error');return;}
     setForm(f=>({...f,id:qr}));
+    setQrScanned(true);
+    toast.show('✓ QR captured: '+qr,'success');
   };
 
   const save=async()=>{
-    if(!form.name||!form.id){toast.show('Name and Employee ID required','error');return;}
-    if(!/^EMP\d+$/i.test(form.id)){toast.show('Employee ID must be EMP001 format','error');return;}
-    const idUp=form.id.toUpperCase();
-    const exist=await db.getEmployeeById(idUp);
-    if(exist){toast.show('Employee ID already taken','error');return;}
+    if(!qrScanned){toast.show('Please scan the employee QR card first','error');return;}
+    if(!form.name){toast.show('Employee name is required','error');return;}
+    if(!form.id){toast.show('QR not captured — please scan again','error');return;}
     setBusy(true);
     try{
-      await db.addEmployee({id:idUp,name:form.name,mobile:form.mobile,tokens:[],totalTokens:0,paidTokens:0,createdAt:today()});
+      // Store exactly what was scanned — this is what supervisor will scan too
+      await db.addEmployee({
+        id:form.id, name:form.name, mobile:form.mobile,
+        tokens:[], totalTokens:0, paidTokens:0, createdAt:today()
+      });
       toast.show('Employee registered: '+form.name,'success');
       onSaved();onClose();
     }catch(e){toast.show(e.message,'error');}finally{setBusy(false);}
@@ -537,20 +477,50 @@ function AddEmployeeModal({onClose,onSaved,toast}){
     <div className="overlay" onClick={onClose}>
       <div className="modal" onClick={e=>e.stopPropagation()}>
         <div className="modal-title">Register New Employee</div>
-        <div className="verify-badge vb-info" style={{marginBottom:16}}>Employee ID format: EMP001, EMP002…</div>
-        {camOpen?(
-          <CamScanner onScan={handleQRScan} onClose={()=>setCamOpen(false)} label="Scan employee QR card..."/>
-        ):(
-          <div style={{textAlign:'center',marginBottom:14}}>
-            <button className="btn btn-ghost btn-sm" onClick={()=>setCamOpen(true)}>📷 Scan QR to Auto-fill ID</button>
-          </div>
-        )}
-        <div className="fg"><label>Employee ID * (EMP001)</label><input value={form.id} onChange={e=>setForm({...form,id:e.target.value.toUpperCase()})} placeholder="EMP001" autoFocus/></div>
-        <div className="fg"><label>Full Name *</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Employee full name"/></div>
-        <div className="fg"><label>Mobile (optional)</label><input value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="10-digit number" maxLength={10}/></div>
+
+        {/* Step 1: Scan QR — mandatory */}
+        <div style={{marginBottom:16}}>
+          <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1.5,textTransform:'uppercase',marginBottom:8}}>Step 1 — Scan Employee QR Card *</div>
+          {qrScanned?(
+            <div className="verify-badge vb-success pop">✓ QR Captured: {form.id}</div>
+          ):camOpen?(
+            <CamScanner onScan={handleQRScan} onClose={()=>setCamOpen(false)} label="Scan employee QR card..."/>
+          ):(
+            <div className="scanbox">
+              <div className="scan-icon">🪪</div>
+              <div className="scan-hint">Scan the physical QR card the employee will carry. This links their card to their profile permanently.</div>
+              <input className="scan-input" placeholder="Or type QR value manually"
+                onKeyDown={e=>e.key==='Enter'&&handleQRScan(e.target.value)}
+                onChange={e=>e.target.value&&null}
+              />
+              <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}>
+                <button className="btn btn-success btn-sm" onClick={()=>setCamOpen(true)}>📷 Scan QR Card</button>
+                <button className="btn btn-ghost btn-sm" onClick={e=>{
+                  const v=e.target.closest('.scanbox').querySelector('input').value;
+                  if(v.trim()) handleQRScan(v.trim());
+                  else toast.show('Enter QR value or use camera','error');
+                }}>→ Use typed value</button>
+              </div>
+            </div>
+          )}
+          {qrScanned&&(
+            <div style={{textAlign:'center',marginTop:6}}>
+              <button className="btn btn-ghost btn-sm" onClick={()=>{setQrScanned(false);setForm(f=>({...f,id:''}));setCamOpen(false);}}>↩ Re-scan</button>
+            </div>
+          )}
+        </div>
+
+        {/* Step 2: Fill details — only shown after QR scanned */}
+        <div style={{opacity:qrScanned?1:.4,pointerEvents:qrScanned?'auto':'none',transition:'opacity .2s'}}>
+          <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1.5,textTransform:'uppercase',marginBottom:8}}>Step 2 — Fill Employee Details</div>
+          <div className="fg"><label>Employee QR ID (auto-filled)</label><input value={form.id} readOnly style={{background:'var(--s3)',color:'var(--accent2)'}}/></div>
+          <div className="fg"><label>Full Name *</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Employee full name" autoFocus={qrScanned}/></div>
+          <div className="fg"><label>Mobile (optional)</label><input value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="10-digit number" maxLength={10}/></div>
+        </div>
+
         <div className="modal-footer">
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={save} disabled={busy}>{busy?'Saving...':'✓ Save Employee'}</button>
+          <button className="btn btn-primary" onClick={save} disabled={busy||!qrScanned}>{busy?'Saving...':'✓ Save Employee'}</button>
         </div>
       </div>
     </div>
@@ -558,30 +528,40 @@ function AddEmployeeModal({onClose,onSaved,toast}){
 }
 
 // ═══════════════════════════════════════════════════
-// ADD SUPERVISOR MODAL
+// ADD SUPERVISOR MODAL — QR scan MANDATORY
 // ═══════════════════════════════════════════════════
 function AddSupervisorModal({onClose,onSaved,toast}){
   const[form,setForm]=useState({id:'',name:'',mobile:'',username:'',password:''});
+  const[qrScanned,setQrScanned]=useState(false);
   const[busy,setBusy]=useState(false);
   const[camOpen,setCamOpen]=useState(false);
 
-  const handleQRScan=(val)=>{
+  const handleQRScan=async(val)=>{
     setCamOpen(false);
     const qr=val.trim().toUpperCase();
-    if(DB.employees.find(e=>e.id===qr)){toast.show('That QR belongs to an employee!','error');return;}
-    if(DB.supervisors.find(s=>s.qrId===qr)){toast.show('Supervisor QR already registered','error');return;}
+    // Check not an employee QR
+    const emp=await db.getEmployeeById(qr);
+    if(emp){toast.show('That QR belongs to an employee!','error');return;}
+    // Check not already a supervisor QR
+    const sups=await db.getSupervisors();
+    if(sups.find(s=>s.qrId===qr)){toast.show('Supervisor QR already registered','error');return;}
     setForm(f=>({...f,id:qr}));
+    setQrScanned(true);
+    toast.show('✓ QR captured: '+qr,'success');
   };
 
   const save=async()=>{
-    if(!form.name||!form.username||!form.password||!form.id){toast.show('All fields required','error');return;}
-    if(!/^SUP\d+$/i.test(form.id)){toast.show('Supervisor ID must be SUP001 format','error');return;}
-    const idUp=form.id.toUpperCase();
-    const exist=DB.supervisors.find(s=>s.username===form.username);
-    if(exist){toast.show('Username already taken','error');return;}
+    if(!qrScanned){toast.show('Please scan the supervisor QR card first','error');return;}
+    if(!form.name||!form.username||!form.password){toast.show('Name, username and password required','error');return;}
+    const sups=await db.getSupervisors();
+    if(sups.find(s=>s.username===form.username)){toast.show('Username already taken','error');return;}
     setBusy(true);
     try{
-      await db.addSupervisor({id:idUp,name:form.name,mobile:form.mobile,username:form.username,password:form.password,qrId:idUp,active:true});
+      await db.addSupervisor({
+        id:form.id, name:form.name, mobile:form.mobile,
+        username:form.username, password:form.password,
+        qrId:form.id, active:true
+      });
       toast.show('Supervisor registered!','success');
       onSaved();onClose();
     }catch(e){toast.show(e.message,'error');}finally{setBusy(false);}
@@ -591,24 +571,53 @@ function AddSupervisorModal({onClose,onSaved,toast}){
     <div className="overlay" onClick={onClose}>
       <div className="modal" onClick={e=>e.stopPropagation()}>
         <div className="modal-title">Register New Supervisor</div>
-        <div className="verify-badge vb-info" style={{marginBottom:16}}>Supervisor ID format: SUP001, SUP002…</div>
-        {camOpen?(
-          <CamScanner onScan={handleQRScan} onClose={()=>setCamOpen(false)} label="Scan supervisor QR card..."/>
-        ):(
-          <div style={{textAlign:'center',marginBottom:14}}>
-            <button className="btn btn-ghost btn-sm" onClick={()=>setCamOpen(true)}>📷 Scan QR to Auto-fill ID</button>
-          </div>
-        )}
-        <div className="fg"><label>Supervisor ID * (SUP001)</label><input value={form.id} onChange={e=>setForm({...form,id:e.target.value.toUpperCase()})} placeholder="SUP001" autoFocus/></div>
-        <div className="fg"><label>Full Name *</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Supervisor full name"/></div>
-        <div className="fg"><label>Mobile (optional)</label><input value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="10-digit number" maxLength={10}/></div>
-        <div className="fg-row">
-          <div className="fg"><label>Login Username *</label><input value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="sup_name"/></div>
-          <div className="fg"><label>Password *</label><input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Password"/></div>
+
+        {/* Step 1: Scan QR — mandatory */}
+        <div style={{marginBottom:16}}>
+          <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1.5,textTransform:'uppercase',marginBottom:8}}>Step 1 — Scan Supervisor QR Card *</div>
+          {qrScanned?(
+            <div className="verify-badge vb-success pop">✓ QR Captured: {form.id}</div>
+          ):camOpen?(
+            <CamScanner onScan={handleQRScan} onClose={()=>setCamOpen(false)} label="Scan supervisor QR card..."/>
+          ):(
+            <div className="scanbox">
+              <div className="scan-icon">🔑</div>
+              <div className="scan-hint">Scan the physical QR card the supervisor will carry. This card becomes their permanent identity.</div>
+              <input className="scan-input" placeholder="Or type QR value manually"
+                onKeyDown={e=>e.key==='Enter'&&handleQRScan(e.target.value)}
+              />
+              <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}>
+                <button className="btn btn-success btn-sm" onClick={()=>setCamOpen(true)}>📷 Scan QR Card</button>
+                <button className="btn btn-ghost btn-sm" onClick={e=>{
+                  const v=e.target.closest('.scanbox').querySelector('input').value;
+                  if(v.trim()) handleQRScan(v.trim());
+                  else toast.show('Enter QR value or use camera','error');
+                }}>→ Use typed value</button>
+              </div>
+            </div>
+          )}
+          {qrScanned&&(
+            <div style={{textAlign:'center',marginTop:6}}>
+              <button className="btn btn-ghost btn-sm" onClick={()=>{setQrScanned(false);setForm(f=>({...f,id:''}));setCamOpen(false);}}>↩ Re-scan</button>
+            </div>
+          )}
         </div>
+
+        {/* Step 2: Fill details */}
+        <div style={{opacity:qrScanned?1:.4,pointerEvents:qrScanned?'auto':'none',transition:'opacity .2s'}}>
+          <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1.5,textTransform:'uppercase',marginBottom:8}}>Step 2 — Fill Supervisor Details</div>
+          <div className="fg"><label>Supervisor QR ID (auto-filled)</label><input value={form.id} readOnly style={{background:'var(--s3)',color:'var(--accent3)'}}/></div>
+          <div className="fg"><label>Full Name *</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Supervisor full name" autoFocus={qrScanned}/></div>
+          <div className="fg"><label>Mobile (optional)</label><input value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="10-digit number" maxLength={10}/></div>
+          <div className="fg-row">
+            <div className="fg"><label>Login Username *</label><input value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="sup_name"/></div>
+            <div className="fg"><label>Password *</label><input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Password"/></div>
+          </div>
+        </div>
+
         <div className="modal-footer">
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={save} disabled={busy}>{busy?'Saving...':'✓ Save Supervisor'}</button>
+          <button className="btn btn-primary" onClick={save} disabled={busy||!qrScanned}>{busy?'Saving...':'✓ Save Supervisor'}</button>
         </div>
       </div>
     </div>
@@ -616,8 +625,152 @@ function AddSupervisorModal({onClose,onSaved,toast}){
 }
 
 // ═══════════════════════════════════════════════════
-// PAYOUT MODAL
+// EDIT SUPERVISOR MODAL (Admin only)
 // ═══════════════════════════════════════════════════
+function EditSupervisorModal({sup,onClose,onSaved,toast}){
+  const[form,setForm]=useState({name:sup.name||'',mobile:sup.mobile||'',username:sup.username||'',password:''});
+  const[busy,setBusy]=useState(false);
+
+  const save=async()=>{
+    if(!form.name||!form.username){toast.show('Name and username required','error');return;}
+    setBusy(true);
+    try{
+      // Check username not taken by another supervisor
+      const sups=await db.getSupervisors();
+      const conflict=sups.find(s=>s.username===form.username&&s.id!==sup.id);
+      if(conflict){toast.show('Username already taken','error');setBusy(false);return;}
+      const updated={
+        ...sup,
+        name:form.name,
+        mobile:form.mobile,
+        username:form.username,
+        // Only update password if a new one was entered
+        password:form.password.trim()?form.password.trim():sup.password,
+      };
+      await db.updateSupervisor(updated);
+      toast.show('Supervisor updated!','success');
+      onSaved();onClose();
+    }catch(e){toast.show(e.message,'error');}finally{setBusy(false);}
+  };
+
+  return(
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-title">✏️ Edit Supervisor</div>
+        <div className="verify-badge vb-info" style={{marginBottom:16}}>QR ID: {sup.qrId} · Supervisor ID: {sup.id}</div>
+        <div className="fg"><label>Full Name *</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} autoFocus/></div>
+        <div className="fg"><label>Mobile</label><input value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="10-digit number" maxLength={10}/></div>
+        <div className="fg-row">
+          <div className="fg"><label>Login Username *</label><input value={form.username} onChange={e=>setForm({...form,username:e.target.value})}/></div>
+          <div className="fg"><label>New Password (leave blank to keep)</label><input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="••••••••"/></div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={save} disabled={busy}>{busy?'Saving...':'✓ Save Changes'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
+// REGISTER TOKEN MODAL (Admin only)
+// ═══════════════════════════════════════════════════
+function RegisterTokenModal({onClose,onSaved,toast}){
+  const[camOpen,setCamOpen]=useState(false);
+  const[form,setForm]=useState({id:'',value:TOKEN_VALUE});
+  const[qrScanned,setQrScanned]=useState(false);
+  const[busy,setBusy]=useState(false);
+
+  const handleQRScan=async(val)=>{
+    setCamOpen(false);
+    const qr=val.trim().toUpperCase();
+    // Check not an employee or supervisor QR
+    const emp=await db.getEmployeeById(qr);
+    if(emp){toast.show('That QR belongs to employee: '+emp.name,'error');return;}
+    const sups=await db.getSupervisors();
+    if(sups.find(s=>s.qrId===qr)){toast.show('That QR belongs to a supervisor!','error');return;}
+    // Check if token already registered
+    const existing=await db.getToken(qr);
+    if(existing){toast.show('Token already registered: '+qr,'error');return;}
+    setForm(f=>({...f,id:qr}));
+    setQrScanned(true);
+    toast.show('✓ Token QR captured: '+qr,'success');
+  };
+
+  const save=async()=>{
+    if(!qrScanned||!form.id){toast.show('Please scan the token QR first','error');return;}
+    if(!form.value||isNaN(form.value)||Number(form.value)<=0){toast.show('Enter a valid token value','error');return;}
+    setBusy(true);
+    try{
+      await db.registerToken({
+        id:form.id,
+        value:Number(form.value),
+        assignedTo:null,assignedAt:null,
+        assignedBy:null,assignedBySup:null,
+        sessionId:null,lockedDate:null,
+        registeredAt:nowTs()
+      });
+      toast.show('Token registered: '+form.id,'success');
+      onSaved();onClose();
+    }catch(e){toast.show(e.message,'error');}finally{setBusy(false);}
+  };
+
+  return(
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-title">🎟️ Register New Token</div>
+
+        <div style={{marginBottom:16}}>
+          <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1.5,textTransform:'uppercase',marginBottom:8}}>Step 1 — Scan Token QR *</div>
+          {qrScanned?(
+            <div className="verify-badge vb-success pop">✓ Token QR: {form.id}</div>
+          ):camOpen?(
+            <CamScanner onScan={handleQRScan} onClose={()=>setCamOpen(false)} label="Scan token QR..."/>
+          ):(
+            <div className="scanbox">
+              <div className="scan-icon">🎟️</div>
+              <div className="scan-hint">Scan the physical token QR card to register it in the system.</div>
+              <input className="scan-input" placeholder="Or type token ID (e.g. TKN000001)"
+                onKeyDown={e=>e.key==='Enter'&&handleQRScan(e.target.value)}
+              />
+              <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}>
+                <button className="btn btn-success btn-sm" onClick={()=>setCamOpen(true)}>📷 Scan Token QR</button>
+                <button className="btn btn-ghost btn-sm" onClick={e=>{
+                  const v=e.target.closest('.scanbox').querySelector('input').value;
+                  if(v.trim()) handleQRScan(v.trim());
+                  else toast.show('Enter token ID or use camera','error');
+                }}>→ Use typed value</button>
+              </div>
+            </div>
+          )}
+          {qrScanned&&(
+            <div style={{textAlign:'center',marginTop:6}}>
+              <button className="btn btn-ghost btn-sm" onClick={()=>{setQrScanned(false);setForm(f=>({...f,id:''}));}}>↩ Re-scan</button>
+            </div>
+          )}
+        </div>
+
+        <div style={{opacity:qrScanned?1:.4,pointerEvents:qrScanned?'auto':'none',transition:'opacity .2s'}}>
+          <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1.5,textTransform:'uppercase',marginBottom:8}}>Step 2 — Set Token Value</div>
+          <div className="fg"><label>Token ID (auto-filled)</label><input value={form.id} readOnly style={{background:'var(--s3)',color:'var(--accent2)'}}/></div>
+          <div className="fg">
+            <label>Token Value (₹) *</label>
+            <input type="number" value={form.value} onChange={e=>setForm({...form,value:e.target.value})} placeholder="100" min="1"/>
+            <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>Default ₹{TOKEN_VALUE} per token. Change only if this token has a different value.</div>
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={save} disabled={busy||!qrScanned}>{busy?'Saving...':'✓ Register Token'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function PayoutModal({emp,onClose,onDone,toast}){
   const[busy,setBusy]=useState(false);
   if(!emp) return null;
@@ -796,6 +949,8 @@ function AdminDashboard({user,toast}){
   const[showAddEmp,setShowAddEmp]=useState(false);
   const[showAddSup,setShowAddSup]=useState(false);
   const[showScan,setShowScan]=useState(false);
+  const[showRegToken,setShowRegToken]=useState(false);
+  const[editSup,setEditSup]=useState(null);
   const[payoutEmp,setPayoutEmp]=useState(null);
   const[searchEmp,setSearchEmp]=useState('');
   const[searchTok,setSearchTok]=useState('');
@@ -847,7 +1002,7 @@ function AdminDashboard({user,toast}){
     todayAssigned:todayTokens.filter(t=>t.assignedBySup===s.id).length,
   }));
 
-  const TABS=['overview','employees','supervisors','tokens','token-search','reports','payout'];
+  const TABS=['overview','employees','supervisors','tokens','register-tokens','token-search','reports','payout'];
 
   return(
     <div>
@@ -966,7 +1121,12 @@ function AdminDashboard({user,toast}){
                         <td className="mc" style={{color:'var(--accent3)',fontSize:10}}>{s.qrId}</td>
                         <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{assigned}</span></td>
                         <td><span className="badge b-green">Active</span></td>
-                        <td><button className="btn btn-danger btn-sm" onClick={()=>handleRemoveSup(s.id,s.name)}>Remove</button></td>
+                        <td>
+                          <div style={{display:'flex',gap:6}}>
+                            <button className="btn btn-ghost btn-sm" onClick={()=>setEditSup(s)}>✏️ Edit</button>
+                            <button className="btn btn-danger btn-sm" onClick={()=>handleRemoveSup(s.id,s.name)}>Remove</button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
@@ -1004,6 +1164,41 @@ function AdminDashboard({user,toast}){
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── REGISTER TOKENS ── */}
+      {tab==='register-tokens'&&(
+        <div>
+          <div className="sh mb14">
+            <span className="st">Token Registry ({tokens.length} registered)</span>
+            <button className="btn btn-success btn-sm" onClick={()=>setShowRegToken(true)}>+ Register Token</button>
+          </div>
+          <div className="verify-badge vb-info mb14" style={{justifyContent:'flex-start',gap:8}}>
+            🎟️ Register each physical token QR card here before supervisors can assign them. Set the value per token (default ₹{TOKEN_VALUE}).
+          </div>
+          <div className="card">
+            <div className="tw">
+              <table>
+                <thead><tr><th>Token ID</th><th>Value (₹)</th><th>Status</th><th>Assigned To</th><th>Assigned By</th><th>Date</th></tr></thead>
+                <tbody>
+                  {tokens.length===0&&(
+                    <tr><td colSpan={6} style={{textAlign:'center',color:'var(--muted)',padding:32}}>No tokens registered yet. Click "+ Register Token" to add.</td></tr>
+                  )}
+                  {[...tokens].reverse().map(t=>(
+                    <tr key={t.id}>
+                      <td className="mc" style={{color:'var(--accent2)'}}>{t.id}</td>
+                      <td style={{fontFamily:'var(--mono)',color:'var(--accent)'}}>₹{t.value||TOKEN_VALUE}</td>
+                      <td><span className={`badge ${t.assignedTo?'b-green':'b-gray'}`}>{t.assignedTo?'Assigned':'Free'}</span></td>
+                      <td className="mc" style={{color:'var(--accent)'}}>{t.assignedTo||'—'}</td>
+                      <td style={{fontSize:11,color:'var(--muted2)'}}>{t.assignedBy||'—'}</td>
+                      <td style={{fontSize:10,color:'var(--muted)'}}>{t.lockedDate||'—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -1206,6 +1401,8 @@ function AdminDashboard({user,toast}){
       {showAddEmp&&<AddEmployeeModal onClose={()=>setShowAddEmp(false)} onSaved={load} toast={toast}/>}
       {showAddSup&&<AddSupervisorModal onClose={()=>setShowAddSup(false)} onSaved={load} toast={toast}/>}
       {showScan&&<UniversalScanModal onClose={()=>setShowScan(false)} toast={toast}/>}
+      {showRegToken&&<RegisterTokenModal onClose={()=>setShowRegToken(false)} onSaved={load} toast={toast}/>}
+      {editSup&&<EditSupervisorModal sup={editSup} onClose={()=>setEditSup(null)} onSaved={load} toast={toast}/>}
       {payoutEmp&&<PayoutModal emp={payoutEmp} onClose={()=>setPayoutEmp(null)} onDone={load} toast={toast}/>}
     </div>
   );
@@ -1230,20 +1427,22 @@ function SupervisorPanel({user,toast}){
 
   useEffect(()=>{db.getEmployees().then(setEmployees);},[]);
 
-  // ── STEP 1: verify employee ──
+  // ── STEP 1: verify employee — exact QR match ──
   const verifyEmployee=async(raw)=>{
     setEmpCam(false);
     const val=raw.trim().toUpperCase();
 
-    // Block supervisor QR from being scanned as employee
-    const isSup=DB.supervisors.find(s=>s.qrId===val||s.id===val);
+    // Block supervisor QR — check by qrId (exact match what was scanned)
+    const allSups=await db.getSupervisors();
+    const isSup=allSups.find(s=>s.qrId===val||s.id===val);
     if(isSup){
-      toast.show('❌ Supervisor ID detected — cannot assign token','error');
+      toast.show('❌ Supervisor QR detected — cannot use as employee','error');
       setEmpManual('');return;
     }
 
+    // Look up employee by their stored ID — which is exactly the QR value scanned at registration
     const emp=await db.getEmployeeById(val);
-    if(!emp){toast.show('Employee not found: '+val,'error');return;}
+    if(!emp){toast.show('Employee not found for QR: '+val,'error');return;}
     setVerifiedEmp(emp);setStep('tokens');
     toast.show('✔ Employee verified: '+emp.name,'success');
     setTimeout(()=>tokInputRef.current?.focus(),300);
@@ -1254,8 +1453,9 @@ function SupervisorPanel({user,toast}){
     const tokenId=raw.trim().toUpperCase();
     if(!tokenId||!verifiedEmp){toast.show('❌ Scan employee first','error');return;}
 
-    // Block token assignment if tokenId is a supervisor QR
-    const isSup=DB.supervisors.find(s=>s.qrId===tokenId||s.id===tokenId);
+    // Block if token QR is actually a supervisor QR
+    const allSups=await db.getSupervisors();
+    const isSup=allSups.find(s=>s.qrId===tokenId||s.id===tokenId);
     if(isSup){toast.show('❌ Supervisor QR cannot receive tokens','error');setTokManual('');return;}
 
     setTokBusy(true);
