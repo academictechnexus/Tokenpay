@@ -239,10 +239,7 @@ let DB = (() => {
     {id:'EMP004',name:'Deepa M',mobile:'9988776655',tokens:[],totalTokens:2,paidTokens:30,createdAt:'2026-01-12'},
     {id:'EMP005',name:'Suresh P',mobile:'',tokens:[],totalTokens:9,paidTokens:61,createdAt:'2026-01-12'},
   ];
-  const tokens = Array.from({length:200},(_,i)=>({
-    id:`TKN${String(i+1).padStart(6,'0')}`,
-    assignedTo:null,assignedAt:null,assignedBy:null,assignedBySup:null,sessionId:null,lockedDate:null
-  }));
+  const tokens = [];
   const supervisors = [
     {id:'SUP001',name:'Supervisor Alpha',username:'sup1',password:'pass1',qrId:'SUP001',active:true},
     {id:'SUP002',name:'Supervisor Beta',username:'sup2',password:'pass2',qrId:'SUP002',active:true},
