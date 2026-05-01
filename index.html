@@ -219,6 +219,19 @@ tbody tr:last-child td{border-bottom:none}
   .main{padding:14px}
   .topbar{padding:0 14px}
 }
+
+/* ── FULLSCREEN FEEDBACK ── */
+.fs-overlay{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;animation:fsPop .25s ease}
+.fs-overlay.success{background:rgba(61,232,160,.97)}
+.fs-overlay.error{background:rgba(240,79,94,.97)}
+.fs-overlay.warn{background:rgba(240,147,58,.97)}
+.fs-icon{font-size:100px;line-height:1;margin-bottom:20px;animation:fsBounce .4s cubic-bezier(.175,.885,.32,1.275)}
+.fs-title{font-family:var(--mono);font-size:22px;font-weight:700;color:#fff;letter-spacing:2px;text-align:center;padding:0 20px}
+.fs-sub{font-size:15px;color:rgba(255,255,255,.85);margin-top:10px;text-align:center;padding:0 24px;line-height:1.5}
+@keyframes fsPop{from{opacity:0}to{opacity:1}}
+@keyframes fsBounce{0%{transform:scale(0)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
+
+
 </style>
 </head>
 <body>
@@ -392,6 +405,55 @@ const db = {
 // ═══════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════
+// ── SOUND HELPER ──
+function playBeep(type='success'){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const o=ctx.createOscillator();
+    const g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    if(type==='success'){
+      o.frequency.setValueAtTime(880,ctx.currentTime);
+      o.frequency.setValueAtTime(1100,ctx.currentTime+0.1);
+      g.gain.setValueAtTime(0.3,ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.3);
+      o.start(ctx.currentTime);o.stop(ctx.currentTime+0.3);
+    } else if(type==='error'){
+      o.frequency.setValueAtTime(220,ctx.currentTime);
+      g.gain.setValueAtTime(0.4,ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.4);
+      o.start(ctx.currentTime);o.stop(ctx.currentTime+0.4);
+    } else if(type==='assign'){
+      // double beep for token assignment
+      o.frequency.setValueAtTime(660,ctx.currentTime);
+      o.frequency.setValueAtTime(880,ctx.currentTime+0.08);
+      o.frequency.setValueAtTime(1320,ctx.currentTime+0.16);
+      g.gain.setValueAtTime(0.3,ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.35);
+      o.start(ctx.currentTime);o.stop(ctx.currentTime+0.35);
+    }
+  }catch(e){}
+}
+
+// ── FULLSCREEN FEEDBACK ──
+function FullScreenFeedback({type,icon,title,sub,onDone}){
+  useEffect(()=>{
+    playBeep(type==='error'?'error':type==='assign'?'assign':'success');
+    const t=setTimeout(onDone, type==='error'?2200:1800);
+    return()=>clearTimeout(t);
+  },[]);
+  const cls=type==='error'?'error':type==='assign'?'success':'success';
+  return(
+    <div className={`fs-overlay ${cls}`} onClick={onDone}>
+      <div className="fs-icon">{icon}</div>
+      <div className="fs-title">{title}</div>
+      {sub&&<div className="fs-sub">{sub}</div>}
+      <div style={{marginTop:24,fontFamily:'var(--mono)',fontSize:10,color:'rgba(255,255,255,.6)',letterSpacing:2}}>TAP TO DISMISS</div>
+    </div>
+  );
+}
+
+
 function useToast(){
   const[toasts,setToasts]=useState([]);
   const show=(msg,type='info')=>{const id=Date.now();setToasts(t=>[...t,{id,msg,type}]);setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),3500);};
@@ -939,14 +1001,36 @@ function RegisterTokenModal({onClose,onSaved,toast}){
 
 function PayoutModal({emp,onClose,onDone,toast}){
   const[busy,setBusy]=useState(false);
+  const[partialMode,setPartialMode]=useState(false);
+  const[partialTokens,setPartialTokens]=useState('');
   if(!emp) return null;
-  const amount=(emp.totalTokens||0)*TOKEN_VALUE;
+
+  const pending=emp.totalTokens||0;
+  const tokensToUse=partialMode?(parseInt(partialTokens)||0):pending;
+  const amount=tokensToUse*(emp.tokenValue||TOKEN_VALUE);
+  const isValid=tokensToUse>0&&tokensToUse<=pending;
 
   const doPay=async()=>{
+    if(!isValid){toast.show('Enter valid token count (1 to '+pending+')','error');return;}
     setBusy(true);
     try{
-      const res=await db.payEmployee(emp.id);
-      toast.show(`✓ Paid ₹${res.amount} for ${res.tokensPaid} tokens to ${emp.name}`,'success');
+      if(partialMode){
+        // Partial payout — save txn, reduce tokens, don't reset all
+        const txnId='TXN'+Date.now();
+        await firestore.collection('transactions').doc(txnId).set({
+          id:txnId, employeeId:emp.id, employeeName:emp.name,
+          tokensPaid:tokensToUse, amount, date:today(), timestamp:nowTs(),
+          type:'partial'
+        });
+        await firestore.collection('employees').doc(emp.id).update({
+          totalTokens: firebase.firestore.FieldValue.increment(-tokensToUse),
+          paidTokens: firebase.firestore.FieldValue.increment(tokensToUse)
+        });
+        toast.show(`✓ Partial payment ₹${amount} (${tokensToUse} tokens) done`,'success');
+      } else {
+        const res=await db.payEmployee(emp.id);
+        toast.show(`✓ Paid ₹${res.amount} for ${res.tokensPaid} tokens to ${emp.name}`,'success');
+      }
       onDone();onClose();
     }catch(e){toast.show(e.message,'error');}finally{setBusy(false);}
   };
@@ -954,26 +1038,52 @@ function PayoutModal({emp,onClose,onDone,toast}){
   return(
     <div className="overlay" onClick={onClose}>
       <div className="modal" onClick={e=>e.stopPropagation()}>
-        <div className="modal-title">💰 Payout & Reset</div>
+        <div className="modal-title">💰 Payout</div>
         <div className="payout-box">
           <div style={{fontSize:13,color:'var(--muted)'}}>Employee</div>
           <div style={{fontSize:18,fontWeight:600,marginTop:4}}>{emp.name}</div>
           <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--muted)',marginTop:2}}>{emp.id}</div>
           <hr className="divider" style={{borderColor:'rgba(61,232,160,.2)'}}/>
-          <div style={{fontSize:12,color:'var(--muted)'}}>Current Tokens</div>
-          <div style={{fontFamily:'var(--mono)',fontSize:24,color:'var(--accent)',margin:'4px 0'}}>{emp.totalTokens||0}</div>
-          <div style={{fontSize:12,color:'var(--muted)',marginTop:8}}>Payable Amount</div>
-          <div className="payout-amount">₹{amount.toLocaleString('en-IN')}</div>
-          <div style={{fontSize:10,color:'var(--muted)',fontFamily:'var(--mono)'}}>@ ₹{TOKEN_VALUE}/token</div>
+          <div style={{fontSize:12,color:'var(--muted)'}}>Pending Tokens</div>
+          <div style={{fontFamily:'var(--mono)',fontSize:24,color:'var(--accent)',margin:'4px 0'}}>{pending}</div>
         </div>
-        <div style={{marginTop:14,padding:12,background:'rgba(240,79,94,.05)',border:'1px solid rgba(240,79,94,.2)',borderRadius:8,fontSize:11,color:'var(--muted)'}}>
-          ⚠️ After payment, token count resets to 0 and this cycle ends.
+
+        {/* Payment mode toggle */}
+        <div style={{display:'flex',gap:8,margin:'14px 0'}}>
+          <button className={`btn btn-sm ${!partialMode?'btn-success':'btn-ghost'}`} style={{flex:1}} onClick={()=>setPartialMode(false)}>
+            Full Payment
+          </button>
+          <button className={`btn btn-sm ${partialMode?'btn-warn':'btn-ghost'}`} style={{flex:1}} onClick={()=>setPartialMode(true)}>
+            Partial Payment
+          </button>
         </div>
-        {(emp.totalTokens||0)===0&&<div className="verify-badge vb-warn" style={{marginTop:12}}>No tokens to pay out</div>}
+
+        {partialMode&&(
+          <div className="fg">
+            <label>Tokens to pay (max {pending})</label>
+            <input type="number" value={partialTokens}
+              onChange={e=>setPartialTokens(e.target.value)}
+              placeholder={'1 to '+pending} min="1" max={pending} autoFocus/>
+          </div>
+        )}
+
+        <div className="payout-box" style={{padding:14,marginTop:8}}>
+          <div style={{fontSize:11,color:'var(--muted)'}}>{partialMode?'Partial':'Full'} Payable Amount</div>
+          <div className="payout-amount" style={{fontSize:partialMode?28:36}}>₹{isValid||!partialMode?amount.toLocaleString('en-IN'):'—'}</div>
+          <div style={{fontSize:10,color:'var(--muted)',fontFamily:'var(--mono)'}}>@ ₹{emp.tokenValue||TOKEN_VALUE}/token</div>
+          {partialMode&&isValid&&<div style={{fontSize:10,color:'var(--warn)',marginTop:6,fontFamily:'var(--mono)'}}>Remaining after payment: {pending-tokensToUse} tokens</div>}
+        </div>
+
+        {pending===0&&<div className="verify-badge vb-warn" style={{marginTop:12}}>No tokens to pay out</div>}
+        {!partialMode&&<div style={{marginTop:10,padding:10,background:'rgba(240,79,94,.05)',border:'1px solid rgba(240,79,94,.2)',borderRadius:8,fontSize:11,color:'var(--muted)'}}>
+          ⚠️ Full payment resets all tokens to 0.
+        </div>}
+
         <div className="modal-footer">
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-warn" onClick={doPay} disabled={busy||(emp.totalTokens||0)===0}>
-            {busy?'Processing...':'PAY & RESET ✓'}
+          <button className={`btn ${partialMode?'btn-warn':'btn-warn'}`} onClick={doPay}
+            disabled={busy||pending===0||(partialMode&&!isValid)}>
+            {busy?'Processing...':`${partialMode?'Partial':'Full'} PAY ₹${isValid||!partialMode?amount.toLocaleString('en-IN'):'?'}`}
           </button>
         </div>
       </div>
@@ -2116,6 +2226,7 @@ function SupervisorPanel({user,toast}){
   const[verifiedEmp,setVerifiedEmp]=useState(null);
   const[sessionTokens,setSessionTokens]=useState([]);
   const[sessionId]=useState(`SES-${Date.now()}`);
+const[feedback,setFeedback]=useState(null); // {type,icon,title,sub}
   const[empSearch,setEmpSearch]=useState('');
   const[empCam,setEmpCam]=useState(false);
   const[empManual,setEmpManual]=useState('');
@@ -2127,17 +2238,24 @@ function SupervisorPanel({user,toast}){
   useEffect(()=>{db.getEmployees().then(setEmployees);},[]);
 
   // ── STEP 1: verify employee — exact QR match ──
-  const verifyEmployee=async(raw)=>{
-    setEmpCam(false);
-    const val=raw.trim().toUpperCase();
-
-    // Block supervisor QR — check by qrId (exact match what was scanned)
-    const allSups=await db.getSupervisors();
-    const isSup=allSups.find(s=>s.qrId===val||s.id===val);
-    if(isSup){
-      toast.show('❌ Supervisor QR detected — cannot use as employee','error');
-      setEmpManual('');return;
-    }
+const verifyEmployee=async(raw)=>{
+  setEmpCam(false);
+  const val=raw.trim().toUpperCase();
+  const allSups=await db.getSupervisors();
+  const isSup=allSups.find(s=>s.qrId===val||s.id===val);
+  if(isSup){
+    setFeedback({type:'error',icon:'🚫',title:'SUPERVISOR QR',sub:'Cannot use supervisor QR as employee'});
+    setEmpManual('');return;
+  }
+  const emp=await db.getEmployeeById(val);
+  if(!emp){
+    setFeedback({type:'error',icon:'❌',title:'NOT FOUND',sub:'No employee registered for QR: '+val});
+    return;
+  }
+  setVerifiedEmp(emp);setStep('tokens');
+  setFeedback({type:'success',icon:'✅',title:'VERIFIED',sub:emp.name+'\n'+emp.id});
+  setTimeout(()=>tokInputRef.current?.focus(),300);
+};
 
     // Look up employee by their stored ID — which is exactly the QR value scanned at registration
     const emp=await db.getEmployeeById(val);
@@ -2148,33 +2266,39 @@ function SupervisorPanel({user,toast}){
   };
 
   // ── STEP 2: assign token ──
-  const assignToken=async(raw)=>{
-    const tokenId=raw.trim().toUpperCase();
-    if(!tokenId||!verifiedEmp){toast.show('❌ Scan employee first','error');return;}
-
-    // Block if token QR is actually a supervisor QR
-    const allSups=await db.getSupervisors();
-    const isSup=allSups.find(s=>s.qrId===tokenId||s.id===tokenId);
-    if(isSup){toast.show('❌ Supervisor QR cannot receive tokens','error');setTokManual('');return;}
-
-    setTokBusy(true);
-    try{
-      await db.assignToken(tokenId,verifiedEmp.id,user.id,user.name,sessionId);
-      setSessionTokens(p=>[...p,{tokenId,empId:verifiedEmp.id,empName:verifiedEmp.name,at:new Date().toLocaleTimeString()}]);
-      setTokManual('');
-      const updated=await db.getEmployeeById(verifiedEmp.id);
-      if(updated) setVerifiedEmp(updated);
-      toast.show(`✓ ${tokenId} → ${verifiedEmp.name}`,'success');
-    }catch(e){toast.show(e.message,'error');}
-    finally{setTokBusy(false);setTokCam(false);setTimeout(()=>tokInputRef.current?.focus(),100);}
-  };
-
+const assignToken=async(raw)=>{
+  const tokenId=raw.trim().toUpperCase();
+  if(!tokenId||!verifiedEmp){
+    setFeedback({type:'error',icon:'❌',title:'SCAN EMPLOYEE FIRST',sub:'Verify employee before assigning token'});
+    return;
+  }
+  const allSups=await db.getSupervisors();
+  const isSup=allSups.find(s=>s.qrId===tokenId||s.id===tokenId);
+  if(isSup){
+    setFeedback({type:'error',icon:'🚫',title:'SUPERVISOR QR',sub:'Supervisor QR cannot receive tokens'});
+    setTokManual('');return;
+  }
+  setTokBusy(true);
+  try{
+    await db.assignToken(tokenId,verifiedEmp.id,user.id,user.name,sessionId);
+    setSessionTokens(p=>[...p,{tokenId,empId:verifiedEmp.id,empName:verifiedEmp.name,at:new Date().toLocaleTimeString()}]);
+    setTokManual('');
+    const updated=await db.getEmployeeById(verifiedEmp.id);
+    if(updated) setVerifiedEmp(updated);
+    setFeedback({type:'assign',icon:'🎟️',title:'TOKEN ASSIGNED',sub:tokenId+' → '+verifiedEmp.name});
+  }catch(e){
+    setFeedback({type:'error',icon:'❌',title:'ERROR',sub:e.message});
+  }
+  finally{setTokBusy(false);setTokCam(false);setTimeout(()=>tokInputRef.current?.focus(),100);}
+};
   const resetSession=()=>{setStep('verify');setVerifiedEmp(null);setSessionTokens([]);setEmpManual('');setTokManual('');};
   const fEmps=employees.filter(e=>e.name.toLowerCase().includes(empSearch.toLowerCase())||e.id.toLowerCase().includes(empSearch.toLowerCase()));
 
-  return(
-    <div>
-      {/* ── STEP INDICATOR ── */}
+return(
+  <div>
+    {feedback&&<FullScreenFeedback {...feedback} onDone={()=>setFeedback(null)}/>}
+    {/* ── STEP INDICATOR ── */}
+
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
         <div style={{display:'flex',alignItems:'center',gap:6,fontFamily:'var(--mono)',fontSize:11}}>
           <div style={{width:24,height:24,borderRadius:'50%',background:step==='verify'?'var(--accent)':'var(--accent2)',color:'#07070d',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700}}>1</div>
