@@ -2254,7 +2254,7 @@ const verifyEmployee=async(raw)=>{
   }
   setVerifiedEmp(emp);setStep('tokens');
   setFeedback({type:'success',icon:'✅',title:'VERIFIED',sub:emp.name+'\n'+emp.id});
-  setTimeout(()=>tokInputRef.current?.focus(),300);
+  
 };
 
   // ── STEP 2: assign token ──
@@ -2281,7 +2281,7 @@ const assignToken=async(raw)=>{
   }catch(e){
     setFeedback({type:'error',icon:'❌',title:'ERROR',sub:e.message});
   }
-  finally{setTokBusy(false);setTokCam(false);setTimeout(()=>tokInputRef.current?.focus(),100);}
+  finally{setTokBusy(false);setTokCam(false);}
 };
   const resetSession=()=>{setStep('verify');setVerifiedEmp(null);setSessionTokens([]);setEmpManual('');setTokManual('');};
   const fEmps=employees.filter(e=>e.name.toLowerCase().includes(empSearch.toLowerCase())||e.id.toLowerCase().includes(empSearch.toLowerCase()));
@@ -2368,7 +2368,7 @@ return(
                 <div className={`scanbox ${tokManual?'live':''}`}>
                   <div className="scan-icon">🎟️</div>
                   <div className="scan-hint">Assigning to <strong style={{color:'var(--accent2)'}}>{verifiedEmp.id}</strong></div>
-                  <input ref={tokInputRef} className="scan-input" value={tokManual} onChange={e=>setTokManual(e.target.value.toUpperCase())} onKeyDown={e=>e.key==='Enter'&&assignToken(tokManual)} placeholder="TKN000001" autoFocus/>
+                  <input ref={tokInputRef} className="scan-input" value={tokManual} ... placeholder="TKN000001"/>
                   <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}>
                     <button className="btn btn-ghost btn-sm" onClick={()=>setTokCam(true)}>📷 Camera</button>
                     <button className="btn btn-success btn-sm" onClick={()=>assignToken(tokManual)} disabled={tokBusy||!tokManual.trim()}>
