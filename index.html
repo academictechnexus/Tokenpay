@@ -2257,14 +2257,6 @@ const verifyEmployee=async(raw)=>{
   setTimeout(()=>tokInputRef.current?.focus(),300);
 };
 
-    // Look up employee by their stored ID — which is exactly the QR value scanned at registration
-    const emp=await db.getEmployeeById(val);
-    if(!emp){toast.show('Employee not found for QR: '+val,'error');return;}
-    setVerifiedEmp(emp);setStep('tokens');
-    toast.show('✔ Employee verified: '+emp.name,'success');
-    setTimeout(()=>tokInputRef.current?.focus(),300);
-  };
-
   // ── STEP 2: assign token ──
 const assignToken=async(raw)=>{
   const tokenId=raw.trim().toUpperCase();
