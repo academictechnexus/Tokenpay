@@ -2368,7 +2368,7 @@ return(
                 <div className={`scanbox ${tokManual?'live':''}`}>
                   <div className="scan-icon">🎟️</div>
                   <div className="scan-hint">Assigning to <strong style={{color:'var(--accent2)'}}>{verifiedEmp.id}</strong></div>
-                  <input ref={tokInputRef} className="scan-input" value={tokManual} ... placeholder="TKN000001"/>
+                  <input ref={tokInputRef} className="scan-input" value={tokManual} onChange={e=>setTokManual(e.target.value.toUpperCase())} onKeyDown={e=>e.key==='Enter'&&assignToken(tokManual)} placeholder="TKN000001"/>
                   <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}>
                     <button className="btn btn-ghost btn-sm" onClick={()=>setTokCam(true)}>📷 Camera</button>
                     <button className="btn btn-success btn-sm" onClick={()=>assignToken(tokManual)} disabled={tokBusy||!tokManual.trim()}>
