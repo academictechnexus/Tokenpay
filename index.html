@@ -371,7 +371,11 @@ payEmployee: async (empId, partialTokens = null, resetByAdmin = false) => {
   });
 
   // FULL PAYMENT
-  if (!partialTokens || tokensToPay === pendingTokens || resetByAdmin) {
+if (
+  partialTokens === null ||
+  tokensToPay === pendingTokens ||
+  resetByAdmin
+) {
 
     const tokSnap = await firestore.collection('tokens')
       .where('assignedTo', '==', empId)
@@ -678,15 +682,17 @@ function AddEmployeeModal({onClose,onSaved,toast}){
     setBusy(true);
     try{
       // Store exactly what was scanned — this is what supervisor will scan too
-      await db.addEmployee({
-        id:form.id, name:form.name, mobile:form.mobile,
-        tokens:[],
-totalTokens:0,
-paidTokens:0,
-balanceAmount:0,
-partialPaidTokens:0,
-createdAt:today()
-      });
+await db.addEmployee({
+  id: form.id,
+  name: form.name,
+  mobile: form.mobile,
+  tokens: [],
+  totalTokens: 0,
+  paidTokens: 0,
+  balanceAmount: 0,
+  partialPaidTokens: 0,
+  createdAt: today()
+});
       toast.show('Employee registered: '+form.name,'success');
       onSaved();onClose();
     }catch(e){toast.show(e.message,'error');}finally{setBusy(false);}
