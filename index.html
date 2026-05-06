@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>TokenPay v5</title>
+<title>SS Exports Workforce Management</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -32,7 +32,8 @@
 :root {
   --bg:#07070d; --s1:#10101a; --s2:#171724; --s3:#1e1e2e;
   --border:#28283c; --border2:#34344a;
-  --accent:#f5c842; --accent2:#3de8a0; --accent3:#7c6fff;
+--accent:#ffb703;
+--accent2:#06d6a0; --accent3:#7c6fff;
   --danger:#f04f5e; --warn:#f0933a;
   --text:#eeeef8; --muted:#6868a0; --muted2:#9090c0;
   --mono:'Space Mono',monospace; --sans:'DM Sans',sans-serif;
@@ -330,32 +331,88 @@ const db = {
     });
   },
 
-  payEmployee: async (empId) => {
-    const empRef = firestore.collection('employees').doc(empId);
-    const empDoc = await empRef.get();
-    if (!empDoc.exists) throw new Error('Employee not found');
-    const e = empDoc.data();
-    const tokensPaid = e.totalTokens || 0;
-    const amount = tokensPaid * (e.tokenValue || TOKEN_VALUE);
-    const txnId = 'TXN' + Date.now();
-    await firestore.collection('transactions').doc(txnId).set({
-      id: txnId, employeeId: empId, employeeName: e.name,
-      tokensPaid, amount, date: today(), timestamp: nowTs()
-    });
-    const tokSnap = await firestore.collection('tokens').where('assignedTo', '==', empId).get();
-    const batch = firestore.batch();
-    tokSnap.docs.forEach(d => batch.update(d.ref, {
-      assignedTo: null, assignedAt: null, assignedBy: null,
-      assignedBySup: null, sessionId: null, lockedDate: null
-    }));
-    batch.update(empRef, {
-      tokens: [], totalTokens: 0,
-      paidTokens: firebase.firestore.FieldValue.increment(tokensPaid)
-    });
-    await batch.commit();
-    return { tokensPaid, amount };
-  },
+payEmployee: async (empId, partialTokens = null, resetByAdmin = false) => {
 
+  const empRef = firestore.collection('employees').doc(empId);
+  const empDoc = await empRef.get();
+
+  if (!empDoc.exists) throw new Error('Employee not found');
+
+  const e = empDoc.data();
+
+  const pendingTokens = e.totalTokens || 0;
+
+ let tokensToPay =
+  partialTokens !== null
+    ? Number(partialTokens)
+    : pendingTokens;
+
+  if (tokensToPay <= 0)
+    throw new Error('No tokens available');
+
+  if (tokensToPay > pendingTokens)
+    throw new Error('Invalid token count');
+
+  const amount = tokensToPay * (e.tokenValue || TOKEN_VALUE);
+
+  const txnId = 'TXN' + Date.now();
+
+  await firestore.collection('transactions').doc(txnId).set({
+    id: txnId,
+    employeeId: empId,
+    employeeName: e.name,
+    tokensPaid: tokensToPay,
+    amount,
+    date: today(),
+    timestamp: nowTs(),
+    type: partialTokens !== null ? 'partial' : 'full',
+    adminReset: resetByAdmin,
+    remainingTokens: pendingTokens - tokensToPay
+  });
+
+  // FULL PAYMENT
+  if (!partialTokens || tokensToPay === pendingTokens || resetByAdmin) {
+
+    const tokSnap = await firestore.collection('tokens')
+      .where('assignedTo', '==', empId)
+      .get();
+
+    const batch = firestore.batch();
+
+    tokSnap.docs.forEach(d => batch.update(d.ref, {
+      assignedTo: null,
+      assignedAt: null,
+      assignedBy: null,
+      assignedBySup: null,
+      sessionId: null,
+      lockedDate: null
+    }));
+
+    batch.update(empRef, {
+      tokens: [],
+      totalTokens: 0,
+      paidTokens: firebase.firestore.FieldValue.increment(tokensToPay),
+      partialPaidTokens: 0
+    });
+
+    await batch.commit();
+
+  } else {
+
+    // PARTIAL PAYMENT
+    await empRef.update({
+      totalTokens: firebase.firestore.FieldValue.increment(-tokensToPay),
+      paidTokens: firebase.firestore.FieldValue.increment(tokensToPay),
+      partialPaidTokens: firebase.firestore.FieldValue.increment(tokensToPay)
+    });
+
+  }
+
+  return {
+    amount,
+    tokensPaid: tokensToPay
+  };
+},
   getSupervisors: async () => {
     const snap = await firestore.collection('supervisors').get();
     return snap.docs.map(d => d.data());
@@ -550,8 +607,10 @@ function Login({onLogin}){
   return(
     <div className="login-wrap">
       <div className="login-card">
-        <div className="login-logo">⬡ TOKENPAY</div>
-        <div className="login-sub">Workforce Token System v5</div>
+<div className="login-logo">SS EXPORTS</div>
+<div className="login-sub">
+  Workforce Token Management System
+</div>
 
         {/* QR identified — just ask password */}
         {qrUser?(
@@ -621,7 +680,12 @@ function AddEmployeeModal({onClose,onSaved,toast}){
       // Store exactly what was scanned — this is what supervisor will scan too
       await db.addEmployee({
         id:form.id, name:form.name, mobile:form.mobile,
-        tokens:[], totalTokens:0, paidTokens:0, createdAt:today()
+        tokens:[],
+totalTokens:0,
+paidTokens:0,
+balanceAmount:0,
+partialPaidTokens:0,
+createdAt:today()
       });
       toast.show('Employee registered: '+form.name,'success');
       onSaved();onClose();
@@ -1014,23 +1078,28 @@ function PayoutModal({emp,onClose,onDone,toast}){
     if(!isValid){toast.show('Enter valid token count (1 to '+pending+')','error');return;}
     setBusy(true);
     try{
-      if(partialMode){
-        // Partial payout — save txn, reduce tokens, don't reset all
-        const txnId='TXN'+Date.now();
-        await firestore.collection('transactions').doc(txnId).set({
-          id:txnId, employeeId:emp.id, employeeName:emp.name,
-          tokensPaid:tokensToUse, amount, date:today(), timestamp:nowTs(),
-          type:'partial'
-        });
-        await firestore.collection('employees').doc(emp.id).update({
-          totalTokens: firebase.firestore.FieldValue.increment(-tokensToUse),
-          paidTokens: firebase.firestore.FieldValue.increment(tokensToUse)
-        });
-        toast.show(`✓ Partial payment ₹${amount} (${tokensToUse} tokens) done`,'success');
-      } else {
-        const res=await db.payEmployee(emp.id);
-        toast.show(`✓ Paid ₹${res.amount} for ${res.tokensPaid} tokens to ${emp.name}`,'success');
-      }
+if(partialMode){
+
+  const res = await db.payEmployee(
+    emp.id,
+    tokensToUse,
+    false
+  );
+
+  toast.show(
+    `✓ Partial payment ₹${res.amount} (${res.tokensPaid} tokens) done`,
+    'success'
+  );
+
+} else {
+
+  const res = await db.payEmployee(emp.id);
+
+  toast.show(
+    `✓ Paid ₹${res.amount} for ${res.tokensPaid} tokens to ${emp.name}`,
+    'success'
+  );
+}
       onDone();onClose();
     }catch(e){toast.show(e.message,'error');}finally{setBusy(false);}
   };
@@ -2015,6 +2084,48 @@ function AdminDashboard({user,toast}){
                           <button className="btn btn-ghost btn-sm" onClick={()=>setEditEmp(e)}>✏️ Edit</button>
                           <button className="btn btn-warn btn-sm" onClick={()=>setPayoutEmp(e)}>Pay & Reset</button>
                           <button className="btn btn-danger btn-sm" onClick={()=>handleRemoveEmp(e.id,e.name)}>Remove</button>
+ <button
+    className="btn btn-danger btn-sm"
+    onClick={async()=>{
+
+      if(!confirm('Reset all employee tokens? Remaining balance will be recorded.'))
+        return;
+
+      try{
+
+        const balanceAmount =
+          (emp.totalTokens || 0) *
+          (emp.tokenValue || TOKEN_VALUE);
+
+        await firestore.collection('employees')
+          .doc(emp.id)
+          .update({
+            balanceAmount: firebase.firestore.FieldValue.increment(balanceAmount)
+          });
+
+        await db.payEmployee(
+          emp.id,
+          emp.totalTokens,
+          true
+        );
+
+        toast.show(
+          'Employee token reset completed',
+          'success'
+        );
+
+        load();
+
+      }catch(e){
+        toast.show(e.message,'error');
+      }
+
+    }}
+  >
+    Reset Tokens
+  </button>
+
+</div>
                         </div>
                       </td>
                     </tr>
@@ -2184,7 +2295,7 @@ function AdminDashboard({user,toast}){
             ):(
               <div className="tw">
                 <table>
-                  <thead><tr><th>Txn ID</th><th>Employee</th><th>ID</th><th>Tokens Paid</th><th>Amount</th><th>Date</th></tr></thead>
+                  <thead><tr><th>Txn ID</th><th>Employee</th><th>ID</th><th>Tokens Paid</th><th>Amount</th><th>Date</th><th>Balance</th></tr></thead>
                   <tbody>
                     {[...transactions].reverse().map(t=>(
                       <tr key={t.id}>
@@ -2193,7 +2304,13 @@ function AdminDashboard({user,toast}){
                         <td className="mc" style={{color:'var(--accent)'}}>{t.employeeId}</td>
                         <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{t.tokensPaid}</span></td>
                         <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:13}}>₹{t.amount.toLocaleString('en-IN')}</td>
-                        <td style={{fontSize:11,color:'var(--muted)'}}>{t.date}</td>
+                        <td style={{fontFamily:'var(--mono)',color:'var(--warn)',fontWeight:600}}>
+  ₹{(t.remainingTokens || 0) * TOKEN_VALUE}
+</td>
+
+<td style={{fontSize:11,color:'var(--muted)'}}>
+  {t.date}
+</td>
                       </tr>
                     ))}
                   </tbody>
@@ -2423,7 +2540,10 @@ function App(){
       {!user?<Login onLogin={setUser}/>:(
         <>
           <div className="topbar">
-            <div className="brand"><div className="brand-dot"/>TOKENPAY</div>
+<div className="brand">
+  <div className="brand-dot"/>
+  SS EXPORTS
+</div>
             <div className="topbar-r">
               <span style={{fontSize:12,color:'var(--muted2)'}}>{user.name}</span>
               <span className={`rbadge ${user.role}`}>{user.role.toUpperCase()}</span>
