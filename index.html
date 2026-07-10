@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script>
   firebase.initializeApp({
-   apiKey: "AIzaSyARLbZ_SxgLEMG3OP4Q-IIprIk8FK9-hAM",
+ apiKey: "AIzaSyARLbZ_SxgLEMG3OP4Q-IIprIk8FK9-hAM",
   authDomain: "token-pay-demo.firebaseapp.com",
   projectId: "token-pay-demo",
   storageBucket: "token-pay-demo.firebasestorage.app",
@@ -320,7 +320,9 @@ const db = {
     await firestore.collection('transactions').doc(txnId).set({
       id:txnId,employeeId:empId,employeeName:e.name,tokensPaid:tokensToPay,amount,
       date:today(),timestamp:nowTs(),type:partialTokens!==null?'partial':'full',
-      adminReset:resetByAdmin,remainingTokens:pendingTokens-tokensToPay
+      adminReset:resetByAdmin,
+      remainingTokens:pendingTokens-tokensToPay,
+      remainingAmount:(pendingTokens-tokensToPay)*(e.tokenValue||TOKEN_VALUE)
     });
     if(partialTokens===null||tokensToPay===pendingTokens||resetByAdmin){
       const tokSnap=await firestore.collection('tokens').where('assignedTo','==',empId).get();
@@ -351,7 +353,8 @@ const db = {
       id:txnId,employeeId:empId,employeeName:e.name,
       tokensPaid:selectedTokenIds.length,amount,date:today(),timestamp:nowTs(),
       type:'selected',tokenIds:selectedTokenIds,
-      remainingTokens:pendingTokens-selectedTokenIds.length
+      remainingTokens:pendingTokens-selectedTokenIds.length,
+      remainingAmount:(pendingTokens-selectedTokenIds.length)*(e.tokenValue||TOKEN_VALUE)
     });
     const batch=firestore.batch();
     // free the paid tokens — available for reassignment
@@ -694,7 +697,7 @@ function UniversalScanModal({onClose,toast}){
       </div>
     )}
     {result&&(<div style={{marginTop:16}}>
-      {result.type==='employee'&&(<div><div className="verify-badge vb-success pop">👤 Employee QR</div><div className="card"><div className="erow" style={{cursor:'default'}}><div className="avt avt-y">{result.data.name.charAt(0)}</div><div className="ei"><div className="en">{result.data.name}</div><div className="er">{result.data.id}</div>{result.data.mobile&&<div className="er">📞 {result.data.mobile}</div>}</div><div><div className="etok">{result.data.totalTokens||0}</div><div className="etl">pending</div></div></div><div className="g2" style={{marginTop:12}}><div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TOTAL PAID</div><div style={{fontFamily:'var(--mono)',fontSize:20,color:'var(--muted2)'}}>{result.data.paidTokens||0}</div></div><div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>PAYABLE NOW</div><div style={{fontFamily:'var(--mono)',fontSize:20,color:'var(--accent2)'}}>₹{((result.data.totalTokens||0)*TOKEN_VALUE).toLocaleString('en-IN')}</div></div></div></div></div>)}
+      {result.type==='employee'&&(<div><div className="verify-badge vb-success pop">👤 Employee QR</div><div className="card"><div className="erow" style={{cursor:'default'}}><div className="avt avt-y">{result.data.name.charAt(0)}</div><div className="ei"><div className="en">{result.data.name}</div><div className="er">{result.data.id}</div>{result.data.mobile&&<div className="er">📞 {result.data.mobile}</div>}</div><div><div className="etok">{result.data.totalTokens||0}</div><div className="etl">pending</div></div></div><div className="g2" style={{marginTop:12}}><div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TOTAL PAID</div><div style={{fontFamily:'var(--mono)',fontSize:20,color:'var(--muted2)'}}>{result.data.paidTokens||0}</div></div><div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>PAYABLE NOW</div><div style={{fontFamily:'var(--mono)',fontSize:20,color:'var(--accent2)'}}>₹{((result.data.totalTokens||0)*(result.data.tokenValue||TOKEN_VALUE)).toLocaleString('en-IN')}</div></div></div></div></div>)}
       {result.type==='supervisor'&&(<div><div className="verify-badge vb-info pop">🔑 Supervisor QR</div><div className="card"><div className="erow" style={{cursor:'default'}}><div className="avt avt-p">{result.data.name.charAt(0)}</div><div className="ei"><div className="en">{result.data.name}</div><div className="er">{result.data.id} · @{result.data.username}</div></div><span className="badge b-green">Active</span></div><div style={{marginTop:10,padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TOKENS ASSIGNED (ALL TIME)</div><div style={{fontFamily:'var(--mono)',fontSize:24,color:'var(--accent3)'}}>{result.data.totalAssigned||0}</div></div></div></div>)}
       {result.type==='token'&&(<div><div className={`verify-badge pop ${result.data.assignedTo?'vb-success':'vb-info'}`}>🎟️ Token — {result.data.assignedTo?'Assigned':'Free'}</div><div className="card"><div className="g2"><div><div className="ct">Token ID</div><div style={{fontFamily:'var(--mono)',fontSize:13,color:'var(--accent2)'}}>{result.data.id}</div></div><div><div className="ct">Date</div><div style={{fontFamily:'var(--mono)',fontSize:12}}>{result.data.lockedDate||'—'}</div></div><div><div className="ct">Assigned To</div><div style={{fontFamily:'var(--mono)',fontSize:12}}>{result.data.assignedTo||'—'}</div></div><div><div className="ct">Assigned By</div><div style={{fontSize:12}}>{result.data.assignedBy||'—'}</div></div></div>{result.data.employee&&(<div style={{marginTop:12,paddingTop:12,borderTop:'1px solid var(--border)'}}><div className="ct" style={{marginBottom:8}}>Employee</div><div className="erow" style={{cursor:'default'}}><div className="avt avt-y">{result.data.employee.name.charAt(0)}</div><div className="ei"><div className="en">{result.data.employee.name}</div><div className="er">{result.data.employee.id}</div></div></div></div>)}</div></div>)}
       {result.type==='unknown'&&<div className="verify-badge vb-error pop">❌ QR Not Recognised: {result.data.qr}</div>}
@@ -887,7 +890,7 @@ function AdminDashboard({user,toast}){
           <td className="mc" style={{color:'var(--muted2)'}}>{e.mobile||'—'}</td>
           <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{e.totalTokens||0}</span></td>
           <td className="mc" style={{color:'var(--muted2)'}}>{e.paidTokens||0}</td>
-          <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>₹{((e.totalTokens||0)*TOKEN_VALUE).toLocaleString('en-IN')}</td>
+          <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>₹{((e.totalTokens||0)*(e.tokenValue||TOKEN_VALUE)).toLocaleString('en-IN')}</td>
           <td><div style={{display:'flex',gap:6,flexWrap:'wrap',minWidth:0}}>
             <button className="btn btn-ghost btn-sm" onClick={()=>setEditEmp(e)}>✏️</button>
             <button className="btn btn-warn btn-sm" onClick={()=>setPayoutEmp(e)}>💰 Pay</button>
@@ -973,7 +976,7 @@ function AdminDashboard({user,toast}){
           </div>
           <div className="payout-box" style={{padding:14,marginBottom:12}}>
             <div style={{fontSize:11,color:'var(--muted)'}}>Max Payable</div>
-            <div style={{fontFamily:'var(--mono)',fontSize:26,color:'var(--accent2)',lineHeight:1.2}}>₹{((e.totalTokens||0)*TOKEN_VALUE).toLocaleString('en-IN')}</div>
+            <div style={{fontFamily:'var(--mono)',fontSize:26,color:'var(--accent2)',lineHeight:1.2}}>₹{((e.totalTokens||0)*(e.tokenValue||TOKEN_VALUE)).toLocaleString('en-IN')}</div>
           </div>
           <button className="btn btn-warn btn-full btn-sm" onClick={()=>setPayoutEmp(e)}>SELECT TOKENS & PAY →</button>
         </div>))}
@@ -987,7 +990,7 @@ function AdminDashboard({user,toast}){
             <td className="mc" style={{color:'var(--accent)'}}>{t.employeeId}</td>
             <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{t.tokensPaid}</span></td>
             <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:13}}>₹{t.amount.toLocaleString('en-IN')}</td>
-            <td style={{fontFamily:'var(--mono)',color:'var(--warn)',fontWeight:600}}>₹{(t.remainingTokens||0)*TOKEN_VALUE}</td>
+            <td style={{fontFamily:'var(--mono)',color:'var(--warn)',fontWeight:600}}>₹{t.remainingAmount!==undefined?t.remainingAmount:(t.remainingTokens||0)*TOKEN_VALUE}</td>
             <td style={{fontSize:11,color:'var(--muted)'}}>{t.date}</td>
           </tr>))}</tbody></table></div>
         )}
