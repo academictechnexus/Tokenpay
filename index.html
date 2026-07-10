@@ -1126,7 +1126,6 @@ function App(){
         </div>
       </div>
       <div className="main">
-        <div className="demo-banner">⚡ TOKENPAY LIVE — Powered by Firebase · {new Date().toLocaleDateString('en-IN')}</div>
         {user.role==='admin'?<AdminDashboard user={user} toast={toast}/>:<SupervisorPanel user={user} toast={toast}/>}
       </div>
     </>)}
