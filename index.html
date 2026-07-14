@@ -25,208 +25,254 @@
   const firestore = firebase.firestore();
 </script>
 <style>
-:root{--bg:#f1f4f9;--s1:#ffffff;--s2:#f4f6fa;--s3:#e8ecf3;--border:#dde2eb;--border2:#c8cfe0;--accent:#1a56db;--accent2:#057a55;--accent3:#6d28d9;--danger:#c81e1e;--warn:#b45309;--text:#111827;--muted:#4b5563;--muted2:#6b7280;--mono:'Space Mono',monospace;--sans:'DM Sans',sans-serif;--r:8px;--r2:10px;--token-value:100}
+/* ── DESIGN TOKENS ── */
+:root{
+  --primary:#2B4C8C;
+  --primary-dark:#1e3a6e;
+  --primary-light:#EEF3FF;
+  --primary-mid:#4169b8;
+  --success:#1B7A4E;
+  --success-light:#E8F5EF;
+  --success-mid:#2EA672;
+  --danger:#C0392B;
+  --danger-light:#FDEDED;
+  --warn:#B7600A;
+  --warn-light:#FEF3E2;
+  --purple:#5B31A8;
+  --purple-light:#F0EBFF;
+  --bg:#F5F6FA;
+  --surface:#FFFFFF;
+  --surface2:#F9FAFC;
+  --border:#E2E6EF;
+  --border2:#CDD2DF;
+  --text:#1A1F36;
+  --text2:#4A5568;
+  --muted:#718096;
+  --mono:'Space Mono',monospace;
+  --sans:'DM Sans',sans-serif;
+  --r:8px; --r2:10px;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  --shadow-md:0 4px 12px rgba(0,0,0,.1),0 2px 6px rgba(0,0,0,.06);
+  --shadow-lg:0 10px 32px rgba(0,0,0,.12),0 4px 12px rgba(0,0,0,.08);
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
-::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}::-webkit-scrollbar-track{background:var(--bg)}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;font-size:14px;line-height:1.5}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ── APP LAYOUT ── */
 .app{display:flex;flex-direction:column;min-height:100vh}
-.topbar{background:#1e3a5f;border-bottom:none;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.18)}
-.brand{font-family:var(--mono);font-size:13px;color:#ffffff;letter-spacing:3px;display:flex;align-items:center;gap:8px}
-.brand-dot{width:8px;height:8px;background:#60a5fa;border-radius:50%;animation:pulse 2s infinite}
+
+/* ── TOPBAR ── */
+.topbar{background:var(--primary);padding:0 28px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow-md)}
+.brand{font-family:var(--mono);font-size:13px;color:#fff;letter-spacing:3px;display:flex;align-items:center;gap:10px;font-weight:700}
+.brand-dot{width:8px;height:8px;background:#60b8ff;border-radius:50%;animation:pulse 2s infinite;flex-shrink:0}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
-.topbar-r{display:flex;align-items:center;gap:8px;min-width:0}
-.topbar-username{font-size:12px;color:rgba(255,255,255,.75);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
-.rbadge{font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:20px;border:1px solid;letter-spacing:1px}
-.rbadge.admin{border-color:#93c5fd;color:#93c5fd}.rbadge.supervisor{border-color:#6ee7b7;color:#6ee7b7}
-.btn-out{font-family:var(--mono);font-size:9px;padding:4px 10px;border-radius:4px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:rgba(255,255,255,.85);cursor:pointer;transition:all .15s}
-.btn-out:hover{border-color:#fca5a5;color:#fca5a5;background:rgba(255,255,255,.15)}
-.main{flex:1;padding:22px 20px;max-width:1200px;margin:0 auto;width:100%}
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e3a5f 0%,#1e3a5f 40%,#1a56db 100%)}
-.login-card{background:#fff;border:none;border-radius:12px;padding:40px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
-.login-logo{font-family:var(--mono);font-size:22px;color:var(--accent);letter-spacing:3px;margin-bottom:4px}
-.login-sub{font-size:12px;color:var(--muted);margin-bottom:32px}
-.fg{margin-bottom:14px}
-.fg label{display:block;font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
-.fg input,.fg select,.fg textarea{width:100%;background:#fff;border:1px solid #d1d5db;border-radius:var(--r);padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:all .15s}
-.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:#1a56db;box-shadow:0 0 0 3px rgba(26,86,219,.1)}
-.fg input::placeholder{color:var(--muted)}.fg select option{background:#fff}.fg textarea{resize:vertical;min-height:70px}
-.fg-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.fg-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-.btn{font-family:var(--mono);font-size:11px;letter-spacing:.5px;padding:9px 16px;border-radius:var(--r);border:none;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
-.btn-primary{background:#1a56db;color:#ffffff;font-weight:700;border:none}.btn-primary:hover{background:#1648c0}.btn-primary:disabled{opacity:.4;cursor:not-allowed}
-.btn-ghost{background:#fff;border:1px solid #d1d5db;color:#374151}.btn-ghost:hover{border-color:#1a56db;color:#1a56db;background:#eff6ff}
-.btn-success{background:transparent;border:1px solid #057a55;color:#057a55}.btn-success:hover{background:#057a55;color:#fff}
-.btn-danger{background:transparent;border:1px solid var(--border2);color:var(--muted)}.btn-danger:hover{border-color:var(--danger);color:var(--danger)}
-.btn-warn{background:transparent;border:1px solid #b45309;color:#b45309}.btn-warn:hover{background:#b45309;color:#fff}
-.btn-sm{font-size:10px;padding:6px 12px}.btn-full{width:100%;justify-content:center}
-.tabs{display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);overflow-x:auto;background:#fff;padding:0 8px;border-radius:8px 8px 0 0;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-.tab{font-family:var(--mono);font-size:10px;letter-spacing:1px;padding:9px 14px;background:transparent;border:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;white-space:nowrap;text-transform:uppercase}
-.tab.active{color:#1a56db;border-bottom-color:#1a56db;font-weight:700}.tab:hover:not(.active){color:var(--text)}
-.card{background:#fff;border:1px solid #e5e9f0;border-radius:10px;padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,.06)}.card+.card{margin-top:14px}
-.ct{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:#6b7280;text-transform:uppercase;margin-bottom:14px;font-weight:600}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.mb14{margin-bottom:14px}.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.st{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase}
-.stat-n{font-family:var(--mono);font-size:28px;color:#1a56db;line-height:1;font-weight:700}.stat-l{font-size:11px;color:var(--muted);margin-top:4px}
-.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:12px}
-thead th{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#6b7280;padding:10px 12px;border-bottom:2px solid #e5e9f0;text-align:left;white-space:nowrap;background:#f8faff}
-tbody td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text)}tbody tr:hover td{background:#f8faff}tbody tr:last-child td{border-bottom:none}
+.topbar-r{display:flex;align-items:center;gap:10px}
+.topbar-username{font-size:13px;color:rgba(255,255,255,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+.rbadge{font-family:var(--mono);font-size:9px;padding:3px 10px;border-radius:20px;border:1px solid;letter-spacing:1px}
+.rbadge.admin{border-color:rgba(255,255,255,.5);color:#fff;background:rgba(255,255,255,.15)}
+.rbadge.supervisor{border-color:rgba(96,184,255,.6);color:#a0d4ff;background:rgba(96,184,255,.1)}
+.btn-out{font-family:var(--mono);font-size:9px;padding:5px 12px;border-radius:6px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:rgba(255,255,255,.9);cursor:pointer;transition:all .15s;letter-spacing:.5px}
+.btn-out:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.5)}
+
+/* ── MAIN CONTENT ── */
+.main{flex:1;padding:24px 28px;max-width:1280px;margin:0 auto;width:100%}
+
+/* ── LOGIN ── */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,var(--primary-dark) 0%,var(--primary) 50%,#3a6bc4 100%)}
+.login-card{background:#fff;border-radius:14px;padding:44px 40px;width:100%;max-width:390px;box-shadow:var(--shadow-lg)}
+.login-logo{font-family:var(--mono);font-size:20px;color:var(--primary);letter-spacing:3px;margin-bottom:4px;font-weight:700}
+.login-sub{font-size:12px;color:var(--muted);margin-bottom:32px;letter-spacing:.3px}
+
+/* ── FORMS ── */
+.fg{margin-bottom:16px}
+.fg label{display:block;font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px}
+.fg input,.fg select,.fg textarea{width:100%;background:#fff;border:1.5px solid var(--border);border-radius:var(--r);padding:10px 13px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:all .15s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(43,76,140,.1)}
+.fg input::placeholder{color:var(--muted)}
+.fg select option{background:#fff}
+.fg textarea{resize:vertical;min-height:70px}
+.fg-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fg-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+
+/* ── BUTTONS ── */
+.btn{font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:.3px;padding:9px 18px;border-radius:var(--r);border:none;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-dark)}.btn-primary:disabled{opacity:.45;cursor:not-allowed}
+.btn-ghost{background:#fff;border:1.5px solid var(--border2);color:var(--text2)}.btn-ghost:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+.btn-success{background:#fff;border:1.5px solid var(--success-mid);color:var(--success)}.btn-success:hover{background:var(--success-light)}
+.btn-danger{background:#fff;border:1.5px solid var(--border2);color:var(--muted)}.btn-danger:hover{border-color:var(--danger);color:var(--danger);background:var(--danger-light)}
+.btn-warn{background:#fff;border:1.5px solid var(--warn);color:var(--warn)}.btn-warn:hover{background:var(--warn-light)}
+.btn-sm{font-size:11px;padding:6px 13px}
+.btn-full{width:100%;justify-content:center}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:0;margin-bottom:22px;border-bottom:2px solid var(--border);overflow-x:auto;background:#fff;padding:0 6px;border-radius:10px 10px 0 0;box-shadow:var(--shadow)}
+.tab{font-family:var(--mono);font-size:9px;letter-spacing:1px;padding:14px 16px;background:transparent;border:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;white-space:nowrap;text-transform:uppercase}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:700}
+.tab:hover:not(.active){color:var(--text2)}
+
+/* ── CARDS ── */
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--r2);padding:20px 22px;box-shadow:var(--shadow)}
+.card+.card{margin-top:14px}
+.ct{font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.mb14{margin-bottom:14px}
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.st{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text)}
+.stat-n{font-family:var(--mono);font-size:30px;color:var(--primary);line-height:1.1;font-weight:700;margin:4px 0}
+.stat-l{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* ── STAT CARD ACCENTS ── */
+.stat-card{position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.stat-card.blue::before{background:var(--primary)}
+.stat-card.green::before{background:var(--success-mid)}
+.stat-card.purple::before{background:var(--purple)}
+.stat-card.gold::before{background:#d97706}
+
+/* ── TABLE ── */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text2);padding:11px 14px;border-bottom:2px solid var(--border);text-align:left;white-space:nowrap;background:var(--surface2)}
+tbody td{padding:12px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#f7f9ff}
 .mc{font-family:var(--mono);font-size:11px}
-.badge{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9px;letter-spacing:.5px;padding:2px 8px;border-radius:20px;border:1px solid}
-.b-green{border-color:#6ee7b7;color:#065f46;background:#f0fdf4}.b-yellow{border-color:#1a56db;color:#1a56db;background:#eff6ff}.b-red{border-color:#fca5a5;color:#991b1b;background:#fef2f2}.b-gray{border-color:var(--border2);color:var(--muted);background:#f8f9fb}.b-purple{border-color:#c4b5fd;color:#5b21b6;background:#f5f3ff}
-.sbar{display:flex;gap:8px;margin-bottom:14px}.sbar input{flex:1;background:#fff;border:1px solid #d1d5db;border-radius:var(--r);padding:10px 14px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;box-shadow:0 1px 3px rgba(0,0,0,.05)}.sbar input:focus{border-color:#1a56db;box-shadow:0 0 0 3px rgba(26,86,219,.1)}
-.erow{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--r);border:1px solid transparent;cursor:pointer;transition:all .15s;margin-bottom:3px}
-.erow:hover{background:#f0f4ff;border-color:#c7d7fd}.erow.sel{background:#f0fdf4;border-color:var(--accent2)}
-.avt{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:12px;color:#07070d;flex-shrink:0}
-.avt-y{background:#1a56db}.avt-g{background:#057a55}.avt-p{background:#6d28d9}
-.ei{flex:1;min-width:0}.en{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.er{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:1px}
-.etok{font-family:var(--mono);font-size:15px;color:var(--accent);text-align:right}.etl{font-size:9px;color:var(--muted);text-align:right}
-.scanbox{border:2px dashed #c8cfe0;border-radius:10px;padding:28px 20px;text-align:center;transition:all .2s;background:#f7f9ff}
-.scanbox.live{border-color:var(--accent2);background:rgba(5,150,105,.04)}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;letter-spacing:.3px;padding:3px 10px;border-radius:20px}
+.b-green{background:var(--success-light);color:var(--success);border:1px solid #a3d9c0}
+.b-yellow{background:var(--primary-light);color:var(--primary);border:1px solid #b3c6f0}
+.b-red{background:var(--danger-light);color:var(--danger);border:1px solid #f0a3a3}
+.b-gray{background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
+.b-purple{background:var(--purple-light);color:var(--purple);border:1px solid #c4b0f0}
+
+/* ── SEARCH BAR ── */
+.sbar{display:flex;gap:8px;margin-bottom:16px}
+.sbar input{flex:1;background:#fff;border:1.5px solid var(--border);border-radius:var(--r);padding:10px 14px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;box-shadow:inset 0 1px 2px rgba(0,0,0,.04)}
+.sbar input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(43,76,140,.1)}
+
+/* ── EMPLOYEE ROW ── */
+.erow{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--r);border:1.5px solid transparent;cursor:pointer;transition:all .15s;margin-bottom:4px}
+.erow:hover{background:var(--primary-light);border-color:#c7d7fd}
+.erow.sel{background:var(--primary-light);border-color:var(--primary)}
+.avt{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0}
+.avt-y{background:var(--primary)}.avt-g{background:var(--success)}.avt-p{background:var(--purple)}
+.ei{flex:1;min-width:0}
+.en{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.er{font-size:11px;color:var(--muted);margin-top:1px}
+.etok{font-family:var(--mono);font-size:16px;color:var(--primary);text-align:right;font-weight:700}
+.etl{font-size:10px;color:var(--muted);text-align:right}
+
+/* ── SCANNER ── */
+.scanbox{border:2px dashed var(--border2);border-radius:var(--r2);padding:30px 20px;text-align:center;transition:all .2s;background:var(--surface2)}
+.scanbox.live{border-color:var(--success-mid);background:var(--success-light)}
 .scan-icon{font-size:36px;margin-bottom:10px}
-.scan-input{width:100%;max-width:260px;background:#fff;border:2px solid #1a56db;border-radius:var(--r);padding:10px 14px;color:var(--text);font-family:var(--mono);font-size:14px;outline:none;text-align:center;letter-spacing:2px;margin-bottom:12px;box-shadow:0 0 0 3px rgba(26,86,219,.1)}
-.scan-hint{font-size:12px;color:var(--muted);margin-bottom:14px}
+.scan-input{width:100%;max-width:270px;background:#fff;border:2px solid var(--primary);border-radius:var(--r);padding:10px 14px;color:var(--text);font-family:var(--mono);font-size:14px;outline:none;text-align:center;letter-spacing:2px;margin-bottom:12px;box-shadow:0 0 0 3px rgba(43,76,140,.1)}
+.scan-hint{font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6}
+
+/* ── CAMERA ── */
 .cam-wrap{position:relative;border-radius:var(--r2);overflow:hidden;background:#000;margin-bottom:12px}
 .cam-wrap video{width:100%;display:block;max-height:240px;object-fit:cover}
-.cam-frame{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:150px;height:150px;border:3px solid var(--accent2);border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.5)}
-.cam-line{position:absolute;left:50%;transform:translateX(-50%);width:130px;height:2px;background:var(--accent2);opacity:.9;animation:scan 1.8s linear infinite}
+.cam-frame{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:150px;height:150px;border:3px solid var(--success-mid);border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.5)}
+.cam-line{position:absolute;left:50%;transform:translateX(-50%);width:130px;height:2px;background:var(--success-mid);opacity:.9;animation:scan 1.8s linear infinite}
 @keyframes scan{0%{top:calc(50% - 75px)}100%{top:calc(50% + 75px)}}
-.cam-foot{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.7);padding:7px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--accent2)}
-.verify-badge{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;border-radius:var(--r);margin-bottom:14px;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:1px}
-.vb-success{background:#ecfdf5;border:1px solid #6ee7b7;color:#065f46;font-weight:600}
-.vb-error{background:#fef2f2;border:1px solid #fca5a5;color:#991b1b}
-.vb-info{background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;font-weight:600}
-.vb-warn{background:#fffbeb;border:1px solid #fcd34d;color:#92400e}
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
-.modal{background:#fff;border:none;border-radius:12px;padding:24px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.18)}
-.modal-title{font-family:var(--mono);font-size:11px;color:#1a56db;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #eff6ff}
-.modal-footer{display:flex;gap:8px;margin-top:20px}
-.slog-item{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.cam-foot{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.7);padding:7px;text-align:center;font-size:10px;color:var(--success-mid);font-family:var(--mono)}
+
+/* ── VERIFY BADGES ── */
+.verify-badge{display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 18px;border-radius:var(--r);margin-bottom:14px;font-size:13px;font-weight:600;letter-spacing:.3px}
+.vb-success{background:var(--success-light);border:1.5px solid #a3d9c0;color:var(--success)}
+.vb-error{background:var(--danger-light);border:1.5px solid #f0a3a3;color:var(--danger)}
+.vb-info{background:var(--primary-light);border:1.5px solid #b3c6f0;color:var(--primary-dark)}
+.vb-warn{background:var(--warn-light);border:1.5px solid #f0cc8a;color:var(--warn)}
+
+/* ── MODAL ── */
+.overlay{position:fixed;inset:0;background:rgba(26,31,54,.55);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;backdrop-filter:blur(2px)}
+.modal{background:#fff;border-radius:14px;padding:28px;width:100%;max-width:460px;max-height:92vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
+.modal-title{font-size:14px;font-weight:700;color:var(--primary-dark);letter-spacing:.5px;text-transform:uppercase;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid var(--border)}
+.modal-footer{display:flex;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid var(--border)}
+
+/* ── SESSION LOG ── */
+.slog-item{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:12px}
 .slog-item:last-child{border-bottom:none}
+
+/* ── TOASTS ── */
 .toast-wrap{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:6px;z-index:300}
-.toast{font-size:12px;padding:10px 16px;border-radius:var(--r);border:1px solid;animation:tin .2s ease;max-width:300px}
-.toast.success{background:#f0fdf4;border-color:#6ee7b7;color:#065f46}
-.toast.error{background:#fef2f2;border-color:#fca5a5;color:#991b1b}
-.toast.info{background:#eff6ff;border-color:#93c5fd;color:#1d4ed8}
+.toast{font-size:12px;font-weight:500;padding:11px 18px;border-radius:var(--r);border-left:4px solid;animation:tin .2s ease;max-width:320px;background:#fff;box-shadow:var(--shadow-md)}
+.toast.success{border-left-color:var(--success-mid);color:var(--success)}
+.toast.error{border-left-color:var(--danger);color:var(--danger)}
+.toast.info{border-left-color:var(--primary);color:var(--primary)}
 @keyframes tin{from{transform:translateX(30px);opacity:0}to{transform:translateX(0);opacity:1}}
-.demo-banner{background:#1e3a5f;border:none;border-radius:var(--r);padding:10px 16px;margin-bottom:18px;font-size:11px;color:#93c5fd;font-family:var(--mono)}
+
+/* ── DEMO BANNER ── */
+.demo-banner{background:var(--primary);border-radius:var(--r);padding:11px 18px;margin-bottom:22px;font-size:11px;color:rgba(255,255,255,.85);font-family:var(--mono);display:flex;align-items:center;gap:8px}
+
+/* ── ANIMATIONS ── */
 @keyframes popIn{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
 .pop{animation:popIn .4s cubic-bezier(.175,.885,.32,1.275)}
 .divider{border:none;border-top:1px solid var(--border);margin:16px 0}
-.err-msg{font-size:11px;color:var(--danger);margin-top:8px;text-align:center}
-.payout-box{background:linear-gradient(135deg,#eff6ff,#f0fdf4);border:1px solid #bfdbfe;border-radius:10px;padding:20px;text-align:center}
-.report-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding:16px 20px;background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-.report-date{font-family:var(--mono);font-size:10px;color:var(--muted)}
-/* ── NEW: Token checkbox list styles ── */
-.tok-check-list{max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px}
-.tok-check-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
+.err-msg{font-size:11px;color:var(--danger);margin-top:8px;text-align:center;font-weight:500}
+
+/* ── PAYOUT ── */
+.payout-box{background:linear-gradient(135deg,var(--primary-light),var(--success-light));border:1.5px solid #b3c6f0;border-radius:var(--r2);padding:20px;text-align:center}
+.payout-amount{font-family:var(--mono);font-size:34px;color:var(--success);line-height:1;margin:8px 0;font-weight:700}
+.payout-stats-row{display:flex;justify-content:center;gap:28px;margin-top:12px;flex-wrap:wrap}
+
+/* ── REPORTS ── */
+.report-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.report-date{font-size:11px;color:var(--muted)}
+
+/* ── TOKEN CHECKLIST ── */
+.tok-check-list{max-height:280px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r);margin-bottom:12px;background:#fff}
+.tok-check-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
 .tok-check-item:last-child{border-bottom:none}
-.tok-check-item:hover{background:var(--s2)}
-.tok-check-item.tsel{background:#f0fdf4;border-left:2px solid var(--accent2)}
-.tok-check-item input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent2);cursor:pointer;flex-shrink:0}
-.tok-id{font-family:var(--mono);font-size:11px;color:var(--accent2);flex:1}
-.tok-val{font-family:var(--mono);font-size:11px;color:var(--accent)}
+.tok-check-item:hover{background:var(--surface2)}
+.tok-check-item.tsel{background:var(--success-light)}
+.tok-check-item input[type=checkbox]{width:16px;height:16px;accent-color:var(--success);cursor:pointer;flex-shrink:0}
+.tok-id{font-family:var(--mono);font-size:11px;color:var(--primary);flex:1;font-weight:600}
+.tok-val{font-family:var(--mono);font-size:11px;color:var(--success);font-weight:600}
 .tok-by{font-size:10px;color:var(--muted)}
-.tok-sel-bar{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#f1f5f9;border-radius:var(--r);margin-bottom:8px;font-family:var(--mono);font-size:10px;color:var(--muted)}
+.tok-sel-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface2);border-radius:var(--r);margin-bottom:8px;font-size:11px;color:var(--muted);border:1px solid var(--border)}
+
+/* ── FULLSCREEN FEEDBACK ── */
+.fs-overlay{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;animation:fsPop .25s ease}
+.fs-overlay.success{background:rgba(27,122,78,.96)}
+.fs-overlay.error{background:rgba(192,57,43,.96)}
+.fs-overlay.warn{background:rgba(183,96,10,.96)}
+.fs-icon{font-size:90px;line-height:1;margin-bottom:20px;animation:fsBounce .4s cubic-bezier(.175,.885,.32,1.275)}
+.fs-title{font-family:var(--mono);font-size:20px;font-weight:700;color:#fff;letter-spacing:2px;text-align:center;padding:0 20px}
+.fs-sub{font-size:15px;color:rgba(255,255,255,.85);margin-top:10px;text-align:center;padding:0 24px;line-height:1.5}
+@keyframes fsPop{from{opacity:0}to{opacity:1}}
+@keyframes fsBounce{0%{transform:scale(0)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
+
+/* ── MOBILE ── */
 @media(max-width:640px){
-  /* ── layout ── */
   .g2,.g3,.g4,.fg-row,.fg-row3{grid-template-columns:1fr}
-  .main{padding:10px}
-  .topbar{padding:0 10px;height:48px}
-  .brand{font-size:11px;letter-spacing:2px}
-
-  /* ── login ── */
-  .login-card{padding:28px 20px;border-radius:12px}
-  .login-logo{font-size:20px}
-
-  /* ── tabs — horizontal scroll, bigger tap targets ── */
-  .tabs{gap:0;margin-bottom:14px}
-  .tab{font-size:9px;padding:10px 10px;letter-spacing:.5px}
-
-  /* ── cards ── */
+  .main{padding:14px 12px}
+  .topbar{padding:0 14px}
+  .tabs{margin-bottom:14px}
+  .tab{font-size:8px;padding:12px 10px}
   .card{padding:14px}
-  .ct{font-size:8px}
-
-  /* ── stat numbers ── */
-  .stat-n{font-size:22px}
-
-  /* ── tables: card-style rows on mobile ── */
-  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  table{font-size:11px}
-  thead th{font-size:8px;padding:6px 8px}
-  tbody td{padding:8px 8px}
-
-  /* ── action buttons in table rows — stack ── */
-  tbody td div[style*="display:flex"]{flex-wrap:wrap;gap:4px}
-  .btn-sm{font-size:9px;padding:5px 8px}
-
-  /* ── modal — full screen on mobile ── */
   .overlay{padding:0;align-items:flex-end}
-  .modal{max-width:100% !important;border-radius:16px 16px 0 0;padding:20px 16px;max-height:92vh}
+  .modal{max-width:100% !important;border-radius:14px 14px 0 0;padding:20px 16px;max-height:92vh}
   .modal-footer{flex-direction:column}
   .modal-footer .btn{width:100%;justify-content:center}
-
-  /* ── scan box ── */
   .scanbox{padding:20px 14px}
   .scan-input{max-width:100%;font-size:13px}
-  .scan-icon{font-size:28px}
-
-  /* ── payout box ── */
-  .payout-box{padding:14px}
-  .payout-amount{font-size:26px}
-
-  /* ── verify badge ── */
-  .verify-badge{font-size:11px;padding:10px}
-
-  /* ── toast — full width bottom ── */
   .toast-wrap{left:10px;right:10px;bottom:12px}
   .toast{max-width:100%}
-
-  /* ── erow on mobile ── */
-  .erow{padding:8px 10px}
-  .avt{width:30px;height:30px;font-size:11px}
-  .en{font-size:12px}
-
-  /* ── step indicator text — shorten ── */
-  .fs-title{font-size:18px}
-  .fs-icon{font-size:72px}
-
-  /* ── demo banner ── */
-  .demo-banner{font-size:9px;padding:8px 10px}
-
-  /* ── token checklist ── */
+  .report-header{flex-direction:column;gap:6px;align-items:flex-start}
   .tok-check-list{max-height:220px}
-  .tok-check-item{padding:8px 10px;gap:8px}
-  .tok-id{font-size:10px}
-  .tok-val{font-size:10px}
   .tok-by{display:none}
-
-  /* ── report sub-tabs ── */
-  .report-header{flex-direction:column;gap:4px;align-items:flex-start}
+  .payout-stats-row{gap:14px}
+  .demo-banner{font-size:10px}
 }
-.fs-overlay{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;animation:fsPop .25s ease}
-.fs-overlay.success{background:rgba(61,232,160,.97)}.fs-overlay.error{background:rgba(240,79,94,.97)}.fs-overlay.warn{background:rgba(240,147,58,.97)}
-.fs-icon{font-size:100px;line-height:1;margin-bottom:20px;animation:fsBounce .4s cubic-bezier(.175,.885,.32,1.275)}
-.fs-title{font-family:var(--mono);font-size:22px;font-weight:700;color:#fff;letter-spacing:2px;text-align:center;padding:0 20px}
-.fs-sub{font-size:15px;color:rgba(255,255,255,.85);margin-top:10px;text-align:center;padding:0 24px;line-height:1.5}
-@keyframes fsPop{from{opacity:0}to{opacity:1}}@keyframes fsBounce{0%{transform:scale(0)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
-
-/* ── touch targets — all buttons at least 44px tall on touch devices ── */
 @media(hover:none) and (pointer:coarse){
-  .btn,.tab,.btn-out,.erow{min-height:44px}
+  .btn,.tab,.erow,.tok-check-item{min-height:44px}
   .btn-sm{min-height:38px}
-  .tok-check-item{min-height:44px}
-  input,select{font-size:16px !important} /* prevents iOS zoom on focus */
-}
-
-/* ── payout stats row wrap ── */
-.payout-stats-row{display:flex;justify-content:center;gap:28px;margin-top:12px;flex-wrap:wrap}
-@media(max-width:400px){.payout-stats-row{gap:16px}}
-
-/* ── date filter compact ── */
-@media(max-width:480px){
-  .date-filter-row{flex-direction:column;align-items:flex-start !important}
-  .date-filter-row input[type=date]{width:100%}
+  input,select{font-size:16px !important}
 }
 </style>
 </head>
@@ -447,7 +493,7 @@ function AddEmployeeModal({onClose,onSaved,toast}){
     </div>
     <div style={{opacity:qrScanned?1:.4,pointerEvents:qrScanned?'auto':'none',transition:'opacity .2s'}}>
       <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1.5,textTransform:'uppercase',marginBottom:8}}>Step 2 — Fill Employee Details</div>
-      <div className="fg"><label>Employee QR ID (auto-filled)</label><input value={form.id} readOnly style={{background:'var(--s3)',color:'var(--accent2)'}}/></div>
+      <div className="fg"><label>Employee QR ID (auto-filled)</label><input value={form.id} readOnly style={{background:'var(--surface2)',color:'var(--success-mid)'}}/></div>
       <div className="fg"><label>Full Name *</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Employee full name" autoFocus={qrScanned}/></div>
       <div className="fg"><label>Mobile (optional)</label><input value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="10-digit number" maxLength={10}/></div>
     </div>
@@ -475,7 +521,7 @@ function AddSupervisorModal({onClose,onSaved,toast}){
     </div>
     <div style={{opacity:qrScanned?1:.4,pointerEvents:qrScanned?'auto':'none',transition:'opacity .2s'}}>
       <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1.5,textTransform:'uppercase',marginBottom:8}}>Step 2 — Fill Supervisor Details</div>
-      <div className="fg"><label>Supervisor QR ID (auto-filled)</label><input value={form.id} readOnly style={{background:'var(--s3)',color:'var(--accent3)'}}/></div>
+      <div className="fg"><label>Supervisor QR ID (auto-filled)</label><input value={form.id} readOnly style={{background:'var(--surface2)',color:'var(--purple)'}}/></div>
       <div className="fg"><label>Full Name *</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Supervisor full name" autoFocus={qrScanned}/></div>
       <div className="fg"><label>Mobile (optional)</label><input value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="10-digit number" maxLength={10}/></div>
       <div className="fg-row"><div className="fg"><label>Login Username *</label><input value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="sup_name"/></div><div className="fg"><label>Password *</label><input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Password"/></div></div>
@@ -494,9 +540,9 @@ function EditTokenModal({tok,onClose,onSaved,toast}){
   const[form,setForm]=useState({value:tok.value||TOKEN_VALUE});const[busy,setBusy]=useState(false);
   const save=async()=>{if(!form.value||isNaN(form.value)||Number(form.value)<=0){toast.show('Enter a valid token value','error');return;}setBusy(true);try{await db.updateToken({...tok,value:Number(form.value)});toast.show('Token updated!','success');onSaved();onClose();}catch(e){toast.show(e.message,'error');}finally{setBusy(false);}};
   return(<div className="overlay" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}><div className="modal-title">✏️ Edit Token</div><div className="verify-badge vb-info" style={{marginBottom:16}}>Token ID: {tok.id}</div>
-    <div style={{padding:12,background:'var(--s2)',borderRadius:8,marginBottom:14,fontSize:12}}>
+    <div style={{padding:12,background:'var(--surface2)',borderRadius:8,marginBottom:14,fontSize:12}}>
       <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><span style={{color:'var(--muted)'}}>Status</span><span className={`badge ${tok.assignedTo?'b-green':'b-gray'}`}>{tok.assignedTo?'Assigned':'Free'}</span></div>
-      {tok.assignedTo&&<div style={{display:'flex',justifyContent:'space-between'}}><span style={{color:'var(--muted)'}}>Assigned To</span><span style={{fontFamily:'var(--mono)',color:'var(--accent)'}}>{tok.assignedTo}</span></div>}
+      {tok.assignedTo&&<div style={{display:'flex',justifyContent:'space-between'}}><span style={{color:'var(--muted)'}}>Assigned To</span><span style={{fontFamily:'var(--mono)',color:'var(--primary-dark)'}}>{tok.assignedTo}</span></div>}
     </div>
     <div className="fg"><label>Token Value (₹) *</label><input type="number" value={form.value} onChange={e=>setForm({...form,value:e.target.value})} min="1" autoFocus/><div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>Current: ₹{tok.value||TOKEN_VALUE} · Default: ₹{TOKEN_VALUE}</div></div>
     <div className="modal-footer"><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save} disabled={busy}>{busy?'Saving...':'✓ Save Changes'}</button></div>
@@ -529,7 +575,7 @@ function RegisterTokenModal({onClose,onSaved,toast}){
     </div>
     <div style={{opacity:qrScanned?1:.4,pointerEvents:qrScanned?'auto':'none',transition:'opacity .2s'}}>
       <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1.5,textTransform:'uppercase',marginBottom:8}}>Step 2 — Set Token Value</div>
-      <div className="fg"><label>Token ID (auto-filled)</label><input value={form.id} readOnly style={{background:'var(--s3)',color:'var(--accent2)'}}/></div>
+      <div className="fg"><label>Token ID (auto-filled)</label><input value={form.id} readOnly style={{background:'var(--surface2)',color:'var(--success-mid)'}}/></div>
       <div className="fg"><label>Token Value (₹) *</label><input type="number" value={form.value} onChange={e=>setForm({...form,value:e.target.value})} placeholder="100" min="1"/><div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>Default ₹{TOKEN_VALUE} per token.</div></div>
     </div>
     <div className="modal-footer"><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save} disabled={busy||!qrScanned}>{busy?'Saving...':'✓ Register Token'}</button></div>
@@ -591,15 +637,15 @@ function PayoutModal({emp,onClose,onDone,toast}){
           <div className="payout-stats-row">
             <div style={{textAlign:'center'}}>
               <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:2}}>TOTAL PENDING</div>
-              <div style={{fontFamily:'var(--mono)',fontSize:22,color:'var(--accent)'}}>{pending}</div>
+              <div style={{fontFamily:'var(--mono)',fontSize:22,color:'var(--primary-dark)'}}>{pending}</div>
             </div>
             <div style={{textAlign:'center'}}>
               <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:2}}>SELECTED</div>
-              <div style={{fontFamily:'var(--mono)',fontSize:22,color:'var(--accent2)'}}>{selectedCount}</div>
+              <div style={{fontFamily:'var(--mono)',fontSize:22,color:'var(--success-mid)'}}>{selectedCount}</div>
             </div>
             <div style={{textAlign:'center'}}>
               <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:2}}>PAYABLE</div>
-              <div style={{fontFamily:'var(--mono)',fontSize:22,color:'var(--accent2)'}}>₹{selectedAmount.toLocaleString('en-IN')}</div>
+              <div style={{fontFamily:'var(--mono)',fontSize:22,color:'var(--success-mid)'}}>₹{selectedAmount.toLocaleString('en-IN')}</div>
             </div>
           </div>
         </div>
@@ -614,7 +660,7 @@ function PayoutModal({emp,onClose,onDone,toast}){
               <span>{selectedCount} of {empTokens.length} selected</span>
               <div style={{display:'flex',gap:8,alignItems:'center'}}>
                 <button className="btn btn-ghost btn-sm" style={{padding:'3px 10px',fontSize:9}} onClick={toggleAll}>{allSelected?'Deselect All':'Select All'}</button>
-                {selectedCount===empTokens.length&&<span style={{color:'var(--accent2)',fontSize:9}}>FULL PAY</span>}
+                {selectedCount===empTokens.length&&<span style={{color:'var(--success-mid)',fontSize:9}}>FULL PAY</span>}
                 {selectedCount>0&&selectedCount<empTokens.length&&<span style={{color:'var(--warn)',fontSize:9}}>PARTIAL</span>}
               </div>
             </div>
@@ -668,16 +714,16 @@ function TokenSearchPanel({toast}){
     </div>
     {result&&(<div>
       {result.error&&<div className="verify-badge vb-error">{result.error}</div>}
-      {result.status==='free'&&(<div className="card"><div className="verify-badge vb-info" style={{marginBottom:14}}>🎟️ Token {result.token.id} — Free</div><div className="g2"><div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TOKEN ID</div><div style={{fontFamily:'var(--mono)',fontSize:14,color:'var(--accent2)'}}>{result.token.id}</div></div><div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>VALUE</div><div style={{fontFamily:'var(--mono)',fontSize:14,color:'var(--accent)'}}>₹{result.token.value||TOKEN_VALUE}</div></div></div></div>)}
+      {result.status==='free'&&(<div className="card"><div className="verify-badge vb-info" style={{marginBottom:14}}>🎟️ Token {result.token.id} — Free</div><div className="g2"><div style={{padding:10,background:'var(--surface2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TOKEN ID</div><div style={{fontFamily:'var(--mono)',fontSize:14,color:'var(--success-mid)'}}>{result.token.id}</div></div><div style={{padding:10,background:'var(--surface2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>VALUE</div><div style={{fontFamily:'var(--mono)',fontSize:14,color:'var(--primary-dark)'}}>₹{result.token.value||TOKEN_VALUE}</div></div></div></div>)}
       {result.status==='assigned'&&(<div className="card"><div className="verify-badge vb-success pop" style={{marginBottom:14}}>✓ Token {result.token.id} — Assigned</div>
-        {result.employee&&(<div className="erow" style={{cursor:'default',marginBottom:14,borderColor:'var(--accent2)',background:'var(--s2)'}}><div className="avt avt-y">{result.employee.name.charAt(0)}</div><div className="ei"><div className="en">{result.employee.name}</div><div className="er">{result.employee.id}</div></div><div><div className="etok">{result.employee.totalTokens||0}</div><div className="etl">pending</div></div></div>)}
+        {result.employee&&(<div className="erow" style={{cursor:'default',marginBottom:14,borderColor:'var(--accent2)',background:'var(--surface2)'}}><div className="avt avt-y">{result.employee.name.charAt(0)}</div><div className="ei"><div className="en">{result.employee.name}</div><div className="er">{result.employee.id}</div></div><div><div className="etok">{result.employee.totalTokens||0}</div><div className="etl">pending</div></div></div>)}
         <div className="g2">
-          <div className="card"><div className="ct">Token Value</div><div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--accent)'}}>₹{result.token.value||TOKEN_VALUE}</div></div>
+          <div className="card"><div className="ct">Token Value</div><div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--primary)'}}>₹{result.token.value||TOKEN_VALUE}</div></div>
           <div className="card"><div className="ct">Assigned By</div><div style={{fontSize:13}}>{result.token.assignedBy||'—'}</div></div>
-          <div className="card"><div className="ct">Supervisor ID</div><div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--accent3)'}}>{result.token.assignedBySup||'—'}</div></div>
+          <div className="card"><div className="ct">Supervisor ID</div><div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--purple)'}}>{result.token.assignedBySup||'—'}</div></div>
           <div className="card"><div className="ct">Date</div><div style={{fontFamily:'var(--mono)',fontSize:13}}>{result.token.lockedDate||'—'}</div></div>
           <div className="card"><div className="ct">Time</div><div style={{fontFamily:'var(--mono)',fontSize:13}}>{fmtTime(result.token.assignedAt)}</div></div>
-          <div className="card"><div className="ct">Session</div><div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--muted2)'}}>{result.token.sessionId||'—'}</div></div>
+          <div className="card"><div className="ct">Session</div><div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--muted)'}}>{result.token.sessionId||'—'}</div></div>
         </div>
       </div>)}
     </div>)}
@@ -697,9 +743,9 @@ function UniversalScanModal({onClose,toast}){
       </div>
     )}
     {result&&(<div style={{marginTop:16}}>
-      {result.type==='employee'&&(<div><div className="verify-badge vb-success pop">👤 Employee QR</div><div className="card"><div className="erow" style={{cursor:'default'}}><div className="avt avt-y">{result.data.name.charAt(0)}</div><div className="ei"><div className="en">{result.data.name}</div><div className="er">{result.data.id}</div>{result.data.mobile&&<div className="er">📞 {result.data.mobile}</div>}</div><div><div className="etok">{result.data.totalTokens||0}</div><div className="etl">pending</div></div></div><div className="g2" style={{marginTop:12}}><div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TOTAL PAID</div><div style={{fontFamily:'var(--mono)',fontSize:20,color:'var(--muted2)'}}>{result.data.paidTokens||0}</div></div><div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>PAYABLE NOW</div><div style={{fontFamily:'var(--mono)',fontSize:20,color:'var(--accent2)'}}>₹{((result.data.totalTokens||0)*(result.data.tokenValue||TOKEN_VALUE)).toLocaleString('en-IN')}</div></div></div></div></div>)}
-      {result.type==='supervisor'&&(<div><div className="verify-badge vb-info pop">🔑 Supervisor QR</div><div className="card"><div className="erow" style={{cursor:'default'}}><div className="avt avt-p">{result.data.name.charAt(0)}</div><div className="ei"><div className="en">{result.data.name}</div><div className="er">{result.data.id} · @{result.data.username}</div></div><span className="badge b-green">Active</span></div><div style={{marginTop:10,padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TOKENS ASSIGNED (ALL TIME)</div><div style={{fontFamily:'var(--mono)',fontSize:24,color:'var(--accent3)'}}>{result.data.totalAssigned||0}</div></div></div></div>)}
-      {result.type==='token'&&(<div><div className={`verify-badge pop ${result.data.assignedTo?'vb-success':'vb-info'}`}>🎟️ Token — {result.data.assignedTo?'Assigned':'Free'}</div><div className="card"><div className="g2"><div><div className="ct">Token ID</div><div style={{fontFamily:'var(--mono)',fontSize:13,color:'var(--accent2)'}}>{result.data.id}</div></div><div><div className="ct">Date</div><div style={{fontFamily:'var(--mono)',fontSize:12}}>{result.data.lockedDate||'—'}</div></div><div><div className="ct">Assigned To</div><div style={{fontFamily:'var(--mono)',fontSize:12}}>{result.data.assignedTo||'—'}</div></div><div><div className="ct">Assigned By</div><div style={{fontSize:12}}>{result.data.assignedBy||'—'}</div></div></div>{result.data.employee&&(<div style={{marginTop:12,paddingTop:12,borderTop:'1px solid var(--border)'}}><div className="ct" style={{marginBottom:8}}>Employee</div><div className="erow" style={{cursor:'default'}}><div className="avt avt-y">{result.data.employee.name.charAt(0)}</div><div className="ei"><div className="en">{result.data.employee.name}</div><div className="er">{result.data.employee.id}</div></div></div></div>)}</div></div>)}
+      {result.type==='employee'&&(<div><div className="verify-badge vb-success pop">👤 Employee QR</div><div className="card"><div className="erow" style={{cursor:'default'}}><div className="avt avt-y">{result.data.name.charAt(0)}</div><div className="ei"><div className="en">{result.data.name}</div><div className="er">{result.data.id}</div>{result.data.mobile&&<div className="er">📞 {result.data.mobile}</div>}</div><div><div className="etok">{result.data.totalTokens||0}</div><div className="etl">pending</div></div></div><div className="g2" style={{marginTop:12}}><div style={{padding:10,background:'var(--surface2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TOTAL PAID</div><div style={{fontFamily:'var(--mono)',fontSize:20,color:'var(--muted)'}}>{result.data.paidTokens||0}</div></div><div style={{padding:10,background:'var(--surface2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>PAYABLE NOW</div><div style={{fontFamily:'var(--mono)',fontSize:20,color:'var(--success-mid)'}}>₹{((result.data.totalTokens||0)*(result.data.tokenValue||TOKEN_VALUE)).toLocaleString('en-IN')}</div></div></div></div></div>)}
+      {result.type==='supervisor'&&(<div><div className="verify-badge vb-info pop">🔑 Supervisor QR</div><div className="card"><div className="erow" style={{cursor:'default'}}><div className="avt avt-p">{result.data.name.charAt(0)}</div><div className="ei"><div className="en">{result.data.name}</div><div className="er">{result.data.id} · @{result.data.username}</div></div><span className="badge b-green">Active</span></div><div style={{marginTop:10,padding:10,background:'var(--surface2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TOKENS ASSIGNED (ALL TIME)</div><div style={{fontFamily:'var(--mono)',fontSize:24,color:'var(--purple)'}}>{result.data.totalAssigned||0}</div></div></div></div>)}
+      {result.type==='token'&&(<div><div className={`verify-badge pop ${result.data.assignedTo?'vb-success':'vb-info'}`}>🎟️ Token — {result.data.assignedTo?'Assigned':'Free'}</div><div className="card"><div className="g2"><div><div className="ct">Token ID</div><div style={{fontFamily:'var(--mono)',fontSize:13,color:'var(--success-mid)'}}>{result.data.id}</div></div><div><div className="ct">Date</div><div style={{fontFamily:'var(--mono)',fontSize:12}}>{result.data.lockedDate||'—'}</div></div><div><div className="ct">Assigned To</div><div style={{fontFamily:'var(--mono)',fontSize:12}}>{result.data.assignedTo||'—'}</div></div><div><div className="ct">Assigned By</div><div style={{fontSize:12}}>{result.data.assignedBy||'—'}</div></div></div>{result.data.employee&&(<div style={{marginTop:12,paddingTop:12,borderTop:'1px solid var(--border)'}}><div className="ct" style={{marginBottom:8}}>Employee</div><div className="erow" style={{cursor:'default'}}><div className="avt avt-y">{result.data.employee.name.charAt(0)}</div><div className="ei"><div className="en">{result.data.employee.name}</div><div className="er">{result.data.employee.id}</div></div></div></div>)}</div></div>)}
       {result.type==='unknown'&&<div className="verify-badge vb-error pop">❌ QR Not Recognised: {result.data.qr}</div>}
     </div>)}
     <div className="modal-footer"><button className="btn btn-ghost" onClick={()=>{setResult(null);setManual('');}}>🔄 Scan Again</button><button className="btn btn-ghost" onClick={onClose}>Close</button></div>
@@ -707,12 +753,12 @@ function UniversalScanModal({onClose,toast}){
 }
 
 function DateFilter({fromDate,toDate,setFromDate,setToDate}){
-  return(<div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',marginBottom:16,padding:'12px 14px',background:'var(--s2)',borderRadius:8}}>
+  return(<div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',marginBottom:16,padding:'12px 14px',background:'var(--surface2)',borderRadius:8}}>
     <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>DATE RANGE</div>
     <div style={{display:'flex',gap:8,alignItems:'center'}}>
-      <input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)} style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/>
+      <input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/>
       <span style={{color:'var(--muted)',fontSize:11}}>to</span>
-      <input type="date" value={toDate} onChange={e=>setToDate(e.target.value)} style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/>
+      <input type="date" value={toDate} onChange={e=>setToDate(e.target.value)} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/>
     </div>
     <button className="btn btn-ghost btn-sm" onClick={()=>{setFromDate(today());setToDate(today());}}>Today</button>
     <button className="btn btn-ghost btn-sm" onClick={()=>{const d=new Date();d.setDate(d.getDate()-6);setFromDate(d.toISOString().split('T')[0]);setToDate(today());}}>Last 7 days</button>
@@ -757,29 +803,29 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
   const XlBtn=({onClick,disabled})=>(<button className="btn btn-success btn-sm" onClick={onClick} disabled={disabled} style={{whiteSpace:'nowrap'}}>⬇ Excel</button>);
   return(<div>
     <div className="report-header"><span className="st">Reports & Analytics</span><span className="report-date">{new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</span></div>
-    <div style={{display:'flex',gap:4,marginBottom:18,flexWrap:'wrap'}}>{RTABS.map(t=>(<button key={t.id} onClick={()=>setRTab(t.id)} style={{fontFamily:'var(--mono)',fontSize:10,padding:'7px 12px',borderRadius:6,border:'1px solid',cursor:'pointer',letterSpacing:.5,background:rTab===t.id?'var(--accent)':'transparent',borderColor:rTab===t.id?'var(--accent)':'var(--border2)',color:rTab===t.id?'#07070d':'var(--muted)',transition:'all .15s'}}>{t.label}</button>))}</div>
+    <div style={{display:'flex',gap:4,marginBottom:18,flexWrap:'wrap'}}>{RTABS.map(t=>(<button key={t.id} onClick={()=>setRTab(t.id)} style={{fontFamily:'var(--mono)',fontSize:10,padding:'7px 12px',borderRadius:6,border:'1px solid',cursor:'pointer',letterSpacing:.5,background:rTab===t.id?'var(--accent)':'transparent',borderColor:rTab===t.id?'var(--accent)':'var(--border2)',color:rTab===t.id?'#fff':'var(--muted)',transition:'all .15s'}}>{t.label}</button>))}</div>
 
     {rTab==='daily'&&(<div>
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:10}}><div style={{flex:1,minWidth:300}}><DateFilter fromDate={fromDate} toDate={toDate} setFromDate={setFromDate} setToDate={setToDate}/></div><div style={{paddingTop:4}}><XlBtn onClick={exportDaily} disabled={dailySummaryRows.length===0}/></div></div>
-      <div className="g4 mb14"><div className="card"><div className="ct">Total Tokens</div><div className="stat-n" style={{color:'var(--accent2)'}}>{dailyToks.length}</div><div className="stat-l">in range</div></div><div className="card"><div className="ct">Total Value</div><div className="stat-n" style={{fontSize:20}}>₹{dailyToks.reduce((s,t)=>s+(t.value||TOKEN_VALUE),0).toLocaleString('en-IN')}</div><div className="stat-l">in range</div></div><div className="card"><div className="ct">Active Days</div><div className="stat-n" style={{color:'var(--accent3)'}}>{dailySummaryRows.length}</div><div className="stat-l">with activity</div></div><div className="card"><div className="ct">Avg / Day</div><div className="stat-n" style={{fontSize:20,color:'var(--accent)'}}>{dailySummaryRows.length?Math.round(dailyToks.length/dailySummaryRows.length):0}</div><div className="stat-l">tokens</div></div></div>
-      <div className="card"><div className="ct">Day-by-day breakdown</div>{dailySummaryRows.length===0?(<div style={{textAlign:'center',padding:32,color:'var(--muted)',fontSize:13}}>No token activity in selected date range</div>):(<div className="tw"><table><thead><tr><th>Date</th><th>Tokens Assigned</th><th>Total Value</th><th>Employees</th><th>Supervisors</th></tr></thead><tbody>{dailySummaryRows.map(row=>{const ei=[...new Set(row.tokens.map(t=>t.assignedTo))];const si=[...new Set(row.tokens.map(t=>t.assignedBySup).filter(Boolean))];return(<tr key={row.date}><td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>{row.date}</td><td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)',fontSize:15}}>{row.total}</span></td><td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>₹{row.value.toLocaleString('en-IN')}</td><td><span className="badge b-yellow">{ei.length}</span></td><td><span className="badge b-purple">{si.length}</span></td></tr>);})}</tbody></table></div>)}</div>
+      <div className="g4 mb14"><div className="card"><div className="ct">Total Tokens</div><div className="stat-n" style={{color:'var(--success-mid)'}}>{dailyToks.length}</div><div className="stat-l">in range</div></div><div className="card"><div className="ct">Total Value</div><div className="stat-n" style={{fontSize:20}}>₹{dailyToks.reduce((s,t)=>s+(t.value||TOKEN_VALUE),0).toLocaleString('en-IN')}</div><div className="stat-l">in range</div></div><div className="card"><div className="ct">Active Days</div><div className="stat-n" style={{color:'var(--purple)'}}>{dailySummaryRows.length}</div><div className="stat-l">with activity</div></div><div className="card"><div className="ct">Avg / Day</div><div className="stat-n" style={{fontSize:20,color:'var(--primary)'}}>{dailySummaryRows.length?Math.round(dailyToks.length/dailySummaryRows.length):0}</div><div className="stat-l">tokens</div></div></div>
+      <div className="card"><div className="ct">Day-by-day breakdown</div>{dailySummaryRows.length===0?(<div style={{textAlign:'center',padding:32,color:'var(--muted)',fontSize:13}}>No token activity in selected date range</div>):(<div className="tw"><table><thead><tr><th>Date</th><th>Tokens Assigned</th><th>Total Value</th><th>Employees</th><th>Supervisors</th></tr></thead><tbody>{dailySummaryRows.map(row=>{const ei=[...new Set(row.tokens.map(t=>t.assignedTo))];const si=[...new Set(row.tokens.map(t=>t.assignedBySup).filter(Boolean))];return(<tr key={row.date}><td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:12}}>{row.date}</td><td><span style={{fontFamily:'var(--mono)',color:'var(--success-mid)',fontSize:15}}>{row.total}</span></td><td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:12}}>₹{row.value.toLocaleString('en-IN')}</td><td><span className="badge b-yellow">{ei.length}</span></td><td><span className="badge b-purple">{si.length}</span></td></tr>);})}</tbody></table></div>)}</div>
     </div>)}
 
     {rTab==='date'&&(<div>
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:10}}><div style={{flex:1,minWidth:300}}><DateFilter fromDate={fromDate} toDate={toDate} setFromDate={setFromDate} setToDate={setToDate}/></div><div style={{paddingTop:4}}><XlBtn onClick={exportByDate} disabled={dateViewToks.length===0}/></div></div>
-      <div className="card mb14"><div className="sh"><div className="ct" style={{margin:0}}>Employee-wise breakdown</div><span className="badge b-yellow">{dateViewToks.length} tokens · ₹{dateViewToks.reduce((s,t)=>s+(t.value||TOKEN_VALUE),0).toLocaleString('en-IN')}</span></div>{dateViewRows.length===0?(<div style={{textAlign:'center',padding:32,color:'var(--muted)',fontSize:13}}>No activity in selected date range</div>):(<div className="tw"><table><thead><tr><th>Employee</th><th>ID</th><th>Tokens</th><th>Value</th><th>Token IDs</th></tr></thead><tbody>{dateViewRows.map(row=>(<tr key={row.empId}><td>{row.empName}</td><td className="mc" style={{color:'var(--accent)'}}>{row.empId}</td><td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)',fontSize:15}}>{row.tokens.length}</span></td><td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>₹{row.value.toLocaleString('en-IN')}</td><td style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted2)',maxWidth:200,whiteSpace:'normal',lineHeight:1.8}}>{row.tokens.map(t=>(<span key={t.id} style={{display:'inline-block',background:'var(--s2)',border:'1px solid var(--border)',borderRadius:3,padding:'1px 5px',margin:'1px'}}>{t.id}</span>))}</td></tr>))}</tbody></table></div>)}</div>
-      <div className="card"><div className="ct">Full token trace</div><div className="tw"><table><thead><tr><th>Token</th><th>Employee</th><th>Supervisor</th><th>Date</th><th>Time</th></tr></thead><tbody>{dateViewToks.length===0&&<tr><td colSpan={5} style={{textAlign:'center',color:'var(--muted)',padding:24}}>No tokens in range</td></tr>}{[...dateViewToks].sort((a,b)=>(b.assignedAt||'').localeCompare(a.assignedAt||'')).map(t=>(<tr key={t.id}><td className="mc" style={{color:'var(--accent2)'}}>{t.id}</td><td className="mc" style={{color:'var(--accent)'}}>{t.assignedTo}</td><td style={{fontSize:11}}>{t.assignedBy||'—'} <span style={{color:'var(--accent3)',fontFamily:'var(--mono)',fontSize:9}}>({t.assignedBySup||'—'})</span></td><td style={{fontSize:10,color:'var(--muted)'}}>{t.lockedDate}</td><td style={{fontSize:10,color:'var(--muted)'}}>{fmtTime(t.assignedAt)}</td></tr>))}</tbody></table></div></div>
+      <div className="card mb14"><div className="sh"><div className="ct" style={{margin:0}}>Employee-wise breakdown</div><span className="badge b-yellow">{dateViewToks.length} tokens · ₹{dateViewToks.reduce((s,t)=>s+(t.value||TOKEN_VALUE),0).toLocaleString('en-IN')}</span></div>{dateViewRows.length===0?(<div style={{textAlign:'center',padding:32,color:'var(--muted)',fontSize:13}}>No activity in selected date range</div>):(<div className="tw"><table><thead><tr><th>Employee</th><th>ID</th><th>Tokens</th><th>Value</th><th>Token IDs</th></tr></thead><tbody>{dateViewRows.map(row=>(<tr key={row.empId}><td>{row.empName}</td><td className="mc" style={{color:'var(--primary)'}}>{row.empId}</td><td><span style={{fontFamily:'var(--mono)',color:'var(--success-mid)',fontSize:15}}>{row.tokens.length}</span></td><td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:12}}>₹{row.value.toLocaleString('en-IN')}</td><td style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',maxWidth:200,whiteSpace:'normal',lineHeight:1.8}}>{row.tokens.map(t=>(<span key={t.id} style={{display:'inline-block',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:3,padding:'1px 5px',margin:'1px'}}>{t.id}</span>))}</td></tr>))}</tbody></table></div>)}</div>
+      <div className="card"><div className="ct">Full token trace</div><div className="tw"><table><thead><tr><th>Token</th><th>Employee</th><th>Supervisor</th><th>Date</th><th>Time</th></tr></thead><tbody>{dateViewToks.length===0&&<tr><td colSpan={5} style={{textAlign:'center',color:'var(--muted)',padding:24}}>No tokens in range</td></tr>}{[...dateViewToks].sort((a,b)=>(b.assignedAt||'').localeCompare(a.assignedAt||'')).map(t=>(<tr key={t.id}><td className="mc" style={{color:'var(--success-mid)'}}>{t.id}</td><td className="mc" style={{color:'var(--primary)'}}>{t.assignedTo}</td><td style={{fontSize:11}}>{t.assignedBy||'—'} <span style={{color:'var(--purple)',fontFamily:'var(--mono)',fontSize:9}}>({t.assignedBySup||'—'})</span></td><td style={{fontSize:10,color:'var(--muted)'}}>{t.lockedDate}</td><td style={{fontSize:10,color:'var(--muted)'}}>{fmtTime(t.assignedAt)}</td></tr>))}</tbody></table></div></div>
     </div>)}
 
     {rTab==='employee'&&(<div>
-      <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:10,padding:'12px 14px',background:'var(--s2)',borderRadius:8,flexWrap:'wrap'}}>
+      <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:10,padding:'12px 14px',background:'var(--surface2)',borderRadius:8,flexWrap:'wrap'}}>
         <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>EMPLOYEE</div>
-        <select value={selEmp} onChange={e=>setSelEmp(e.target.value)} style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'6px 10px',color:'var(--text)',fontSize:12,minWidth:200}}><option value=''>All Employees</option>{employees.map(e=><option key={e.id} value={e.id}>{e.name} ({e.id})</option>)}</select>
+        <select value={selEmp} onChange={e=>setSelEmp(e.target.value)} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:6,padding:'6px 10px',color:'var(--text)',fontSize:12,minWidth:200}}><option value=''>All Employees</option>{employees.map(e=><option key={e.id} value={e.id}>{e.name} ({e.id})</option>)}</select>
         {selEmp&&<button className="btn btn-ghost btn-sm" onClick={()=>setSelEmp('')}>✕ Clear</button>}
       </div>
-      <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:16,padding:'12px 14px',background:'var(--s2)',borderRadius:8,flexWrap:'wrap'}}>
+      <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:16,padding:'12px 14px',background:'var(--surface2)',borderRadius:8,flexWrap:'wrap'}}>
         <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>DATE RANGE</div>
-        <div style={{display:'flex',gap:8,alignItems:'center'}}><input type="date" value={empFromDate} onChange={e=>setEmpFromDate(e.target.value)} style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/><span style={{color:'var(--muted)',fontSize:11}}>to</span><input type="date" value={empToDate} onChange={e=>setEmpToDate(e.target.value)} style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/></div>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}><input type="date" value={empFromDate} onChange={e=>setEmpFromDate(e.target.value)} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/><span style={{color:'var(--muted)',fontSize:11}}>to</span><input type="date" value={empToDate} onChange={e=>setEmpToDate(e.target.value)} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/></div>
         <button className="btn btn-ghost btn-sm" onClick={()=>{setEmpFromDate(today());setEmpToDate(today());}}>Today</button>
         <button className="btn btn-ghost btn-sm" onClick={()=>{const d=new Date();d.setDate(d.getDate()-6);setEmpFromDate(d.toISOString().split('T')[0]);setEmpToDate(today());}}>Last 7d</button>
         <button className="btn btn-ghost btn-sm" onClick={()=>{const d=new Date();d.setDate(1);setEmpFromDate(d.toISOString().split('T')[0]);setEmpToDate(today());}}>This month</button>
@@ -787,24 +833,24 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
         <XlBtn onClick={exportByEmployee} disabled={empHistory.length===0}/>
       </div>
       {empHistory.length===0?(<div className="card" style={{textAlign:'center',padding:40,color:'var(--muted)'}}>No token history found</div>):(empHistory.map(e=>(<div key={e.id} className="card mb14">
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}><div style={{display:'flex',alignItems:'center',gap:10}}><div className="avt avt-y">{e.name.charAt(0)}</div><div><div style={{fontWeight:600,fontSize:15}}>{e.name}</div><div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--accent)',marginTop:2}}>{e.id}</div>{e.mobile&&<div style={{fontSize:11,color:'var(--muted)',marginTop:1}}>📞 {e.mobile}</div>}</div></div><div style={{textAlign:'right'}}><div style={{fontFamily:'var(--mono)',fontSize:22,color:'var(--accent2)'}}>{e.assignedToks.length}</div><div style={{fontSize:10,color:'var(--muted)'}}>tokens</div></div></div>
-        <div className="g4 mb14" style={{gap:8}}><div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>PENDING</div><div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--accent2)'}}>{e.totalTokens||0}</div></div><div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>PAID TOKENS</div><div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--muted2)'}}>{e.paidTokens||0}</div></div><div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>RANGE VALUE</div><div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--accent)'}}>₹{e.totalValue.toLocaleString('en-IN')}</div></div><div style={{padding:10,background:'var(--s2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TOTAL PAID</div><div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--accent)'}}>₹{e.totalPaid.toLocaleString('en-IN')}</div></div></div>
-        <div className="tw"><table><thead><tr><th>Token</th><th>Value</th><th>Assigned By</th><th>Date</th><th>Time</th></tr></thead><tbody>{e.assignedToks.sort((a,b)=>(b.assignedAt||'').localeCompare(a.assignedAt||'')).map(t=>(<tr key={t.id}><td className="mc" style={{color:'var(--accent2)'}}>{t.id}</td><td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:11}}>₹{t.value||TOKEN_VALUE}</td><td style={{fontSize:11}}>{t.assignedBy||'—'}</td><td style={{fontSize:10,color:'var(--muted)'}}>{t.lockedDate||'—'}</td><td style={{fontSize:10,color:'var(--muted)'}}>{fmtTime(t.assignedAt)}</td></tr>))}</tbody></table></div>
-        {e.txns.length>0&&(<div style={{marginTop:12,paddingTop:12,borderTop:'1px solid var(--border)'}}><div className="ct" style={{marginBottom:8}}>Payout History</div><div className="tw"><table><thead><tr><th>Txn ID</th><th>Tokens Paid</th><th>Amount</th><th>Date</th></tr></thead><tbody>{e.txns.map(t=>(<tr key={t.id}><td className="mc" style={{fontSize:9,color:'var(--muted2)'}}>{t.id}</td><td className="mc" style={{color:'var(--accent2)'}}>{t.tokensPaid}</td><td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>₹{t.amount.toLocaleString('en-IN')}</td><td style={{fontSize:10,color:'var(--muted)'}}>{t.date}</td></tr>))}</tbody></table></div></div>)}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}><div style={{display:'flex',alignItems:'center',gap:10}}><div className="avt avt-y">{e.name.charAt(0)}</div><div><div style={{fontWeight:600,fontSize:15}}>{e.name}</div><div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--primary)',marginTop:2}}>{e.id}</div>{e.mobile&&<div style={{fontSize:11,color:'var(--muted)',marginTop:1}}>📞 {e.mobile}</div>}</div></div><div style={{textAlign:'right'}}><div style={{fontFamily:'var(--mono)',fontSize:22,color:'var(--success-mid)'}}>{e.assignedToks.length}</div><div style={{fontSize:10,color:'var(--muted)'}}>tokens</div></div></div>
+        <div className="g4 mb14" style={{gap:8}}><div style={{padding:10,background:'var(--surface2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>PENDING</div><div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--success-mid)'}}>{e.totalTokens||0}</div></div><div style={{padding:10,background:'var(--surface2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>PAID TOKENS</div><div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--muted)'}}>{e.paidTokens||0}</div></div><div style={{padding:10,background:'var(--surface2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>RANGE VALUE</div><div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--primary)'}}>₹{e.totalValue.toLocaleString('en-IN')}</div></div><div style={{padding:10,background:'var(--surface2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TOTAL PAID</div><div style={{fontFamily:'var(--mono)',fontSize:18,color:'var(--primary)'}}>₹{e.totalPaid.toLocaleString('en-IN')}</div></div></div>
+        <div className="tw"><table><thead><tr><th>Token</th><th>Value</th><th>Assigned By</th><th>Date</th><th>Time</th></tr></thead><tbody>{e.assignedToks.sort((a,b)=>(b.assignedAt||'').localeCompare(a.assignedAt||'')).map(t=>(<tr key={t.id}><td className="mc" style={{color:'var(--success-mid)'}}>{t.id}</td><td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:11}}>₹{t.value||TOKEN_VALUE}</td><td style={{fontSize:11}}>{t.assignedBy||'—'}</td><td style={{fontSize:10,color:'var(--muted)'}}>{t.lockedDate||'—'}</td><td style={{fontSize:10,color:'var(--muted)'}}>{fmtTime(t.assignedAt)}</td></tr>))}</tbody></table></div>
+        {e.txns.length>0&&(<div style={{marginTop:12,paddingTop:12,borderTop:'1px solid var(--border)'}}><div className="ct" style={{marginBottom:8}}>Payout History</div><div className="tw"><table><thead><tr><th>Txn ID</th><th>Tokens Paid</th><th>Amount</th><th>Date</th></tr></thead><tbody>{e.txns.map(t=>(<tr key={t.id}><td className="mc" style={{fontSize:9,color:'var(--muted)'}}>{t.id}</td><td className="mc" style={{color:'var(--success-mid)'}}>{t.tokensPaid}</td><td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:12}}>₹{t.amount.toLocaleString('en-IN')}</td><td style={{fontSize:10,color:'var(--muted)'}}>{t.date}</td></tr>))}</tbody></table></div></div>)}
       </div>)))}
     </div>)}
 
     {rTab==='supervisor'&&(<div>
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:10}}><div style={{flex:1,minWidth:300}}><DateFilter fromDate={fromDate} toDate={toDate} setFromDate={setFromDate} setToDate={setToDate}/></div><div style={{paddingTop:4}}><XlBtn onClick={exportSupervisor} disabled={supRows.length===0}/></div></div>
-      <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:16,padding:'12px 14px',background:'var(--s2)',borderRadius:8,flexWrap:'wrap'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>FILTER SUPERVISOR</div><select value={selSup} onChange={e=>setSelSup(e.target.value)} style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'6px 10px',color:'var(--text)',fontSize:12,minWidth:200}}><option value=''>All Supervisors</option>{supervisors.map(s=><option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}</select>{selSup&&<button className="btn btn-ghost btn-sm" onClick={()=>setSelSup('')}>✕ Clear</button>}</div>
-      <div className="card mb14"><div className="ct">Supervisor performance</div><div className="tw"><table><thead><tr><th>Supervisor</th><th>ID</th><th>Tokens Assigned</th><th>Total Value</th></tr></thead><tbody>{supTotals.length===0&&<tr><td colSpan={4} style={{textAlign:'center',color:'var(--muted)',padding:24}}>No activity in range</td></tr>}{supTotals.map(s=>(<tr key={s.id}><td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="avt avt-p" style={{width:26,height:26,fontSize:10}}>{s.name.charAt(0)}</div>{s.name}</div></td><td className="mc" style={{color:'var(--accent3)'}}>{s.id}</td><td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)',fontSize:15}}>{s.periodCount}</span></td><td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>₹{s.periodValue.toLocaleString('en-IN')}</td></tr>))}</tbody></table></div></div>
-      <div className="card"><div className="ct">Day-by-day supervisor log</div><div className="tw"><table><thead><tr><th>Date</th><th>Supervisor</th><th>ID</th><th>Tokens</th><th>Value</th></tr></thead><tbody>{supRows.length===0&&<tr><td colSpan={5} style={{textAlign:'center',color:'var(--muted)',padding:24}}>No activity in range</td></tr>}{supRows.map((row,i)=>(<tr key={i}><td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:11}}>{row.date}</td><td>{row.supName||row.supId}</td><td className="mc" style={{color:'var(--accent3)'}}>{row.supId}</td><td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{row.count}</span></td><td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:11}}>₹{row.value.toLocaleString('en-IN')}</td></tr>))}</tbody></table></div></div>
+      <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:16,padding:'12px 14px',background:'var(--surface2)',borderRadius:8,flexWrap:'wrap'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>FILTER SUPERVISOR</div><select value={selSup} onChange={e=>setSelSup(e.target.value)} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:6,padding:'6px 10px',color:'var(--text)',fontSize:12,minWidth:200}}><option value=''>All Supervisors</option>{supervisors.map(s=><option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}</select>{selSup&&<button className="btn btn-ghost btn-sm" onClick={()=>setSelSup('')}>✕ Clear</button>}</div>
+      <div className="card mb14"><div className="ct">Supervisor performance</div><div className="tw"><table><thead><tr><th>Supervisor</th><th>ID</th><th>Tokens Assigned</th><th>Total Value</th></tr></thead><tbody>{supTotals.length===0&&<tr><td colSpan={4} style={{textAlign:'center',color:'var(--muted)',padding:24}}>No activity in range</td></tr>}{supTotals.map(s=>(<tr key={s.id}><td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="avt avt-p" style={{width:26,height:26,fontSize:10}}>{s.name.charAt(0)}</div>{s.name}</div></td><td className="mc" style={{color:'var(--purple)'}}>{s.id}</td><td><span style={{fontFamily:'var(--mono)',color:'var(--success-mid)',fontSize:15}}>{s.periodCount}</span></td><td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:12}}>₹{s.periodValue.toLocaleString('en-IN')}</td></tr>))}</tbody></table></div></div>
+      <div className="card"><div className="ct">Day-by-day supervisor log</div><div className="tw"><table><thead><tr><th>Date</th><th>Supervisor</th><th>ID</th><th>Tokens</th><th>Value</th></tr></thead><tbody>{supRows.length===0&&<tr><td colSpan={5} style={{textAlign:'center',color:'var(--muted)',padding:24}}>No activity in range</td></tr>}{supRows.map((row,i)=>(<tr key={i}><td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:11}}>{row.date}</td><td>{row.supName||row.supId}</td><td className="mc" style={{color:'var(--purple)'}}>{row.supId}</td><td><span style={{fontFamily:'var(--mono)',color:'var(--success-mid)'}}>{row.count}</span></td><td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:11}}>₹{row.value.toLocaleString('en-IN')}</td></tr>))}</tbody></table></div></div>
     </div>)}
 
     {rTab==='payout'&&(<div>
-      <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',marginBottom:16,padding:'12px 14px',background:'var(--s2)',borderRadius:8}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>DATE RANGE</div><div style={{display:'flex',gap:8,alignItems:'center'}}><input type="date" value={txFromDate} onChange={e=>setTxFromDate(e.target.value)} style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/><span style={{color:'var(--muted)',fontSize:11}}>to</span><input type="date" value={txToDate} onChange={e=>setTxToDate(e.target.value)} style={{background:'var(--s3)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/></div><button className="btn btn-ghost btn-sm" onClick={()=>{setTxFromDate('');setTxToDate('');}}>Show All</button><button className="btn btn-ghost btn-sm" onClick={()=>{setTxFromDate(today());setTxToDate(today());}}>Today</button><XlBtn onClick={exportPayout} disabled={filteredTxns.length===0}/></div>
-      <div className="g3 mb14"><div className="card"><div className="ct">Transactions</div><div className="stat-n" style={{color:'var(--accent3)'}}>{filteredTxns.length}</div><div className="stat-l">in range</div></div><div className="card"><div className="ct">Tokens Paid</div><div className="stat-n" style={{color:'var(--accent2)'}}>{txTokens}</div><div className="stat-l">total</div></div><div className="card"><div className="ct">Amount Paid</div><div className="stat-n" style={{fontSize:20}}>₹{txTotal.toLocaleString('en-IN')}</div><div className="stat-l">total</div></div></div>
-      <div className="card"><div className="ct">Payment records</div>{filteredTxns.length===0?(<div style={{textAlign:'center',padding:32,color:'var(--muted)',fontSize:13}}>No transactions in selected range</div>):(<div className="tw"><table><thead><tr><th>Txn ID</th><th>Employee</th><th>ID</th><th>Tokens Paid</th><th>Amount</th><th>Date</th><th>Time</th></tr></thead><tbody>{filteredTxns.map(t=>(<tr key={t.id}><td className="mc" style={{fontSize:9,color:'var(--muted2)'}}>{t.id}</td><td>{t.employeeName}</td><td className="mc" style={{color:'var(--accent)'}}>{t.employeeId}</td><td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{t.tokensPaid}</span></td><td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:13}}>₹{t.amount.toLocaleString('en-IN')}</td><td style={{fontSize:10,color:'var(--muted)'}}>{t.date}</td><td style={{fontSize:10,color:'var(--muted)'}}>{fmtTime(t.timestamp)}</td></tr>))}</tbody></table></div>)}</div>
+      <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',marginBottom:16,padding:'12px 14px',background:'var(--surface2)',borderRadius:8}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>DATE RANGE</div><div style={{display:'flex',gap:8,alignItems:'center'}}><input type="date" value={txFromDate} onChange={e=>setTxFromDate(e.target.value)} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/><span style={{color:'var(--muted)',fontSize:11}}>to</span><input type="date" value={txToDate} onChange={e=>setTxToDate(e.target.value)} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:11}}/></div><button className="btn btn-ghost btn-sm" onClick={()=>{setTxFromDate('');setTxToDate('');}}>Show All</button><button className="btn btn-ghost btn-sm" onClick={()=>{setTxFromDate(today());setTxToDate(today());}}>Today</button><XlBtn onClick={exportPayout} disabled={filteredTxns.length===0}/></div>
+      <div className="g3 mb14"><div className="card"><div className="ct">Transactions</div><div className="stat-n" style={{color:'var(--purple)'}}>{filteredTxns.length}</div><div className="stat-l">in range</div></div><div className="card"><div className="ct">Tokens Paid</div><div className="stat-n" style={{color:'var(--success-mid)'}}>{txTokens}</div><div className="stat-l">total</div></div><div className="card"><div className="ct">Amount Paid</div><div className="stat-n" style={{fontSize:20}}>₹{txTotal.toLocaleString('en-IN')}</div><div className="stat-l">total</div></div></div>
+      <div className="card"><div className="ct">Payment records</div>{filteredTxns.length===0?(<div style={{textAlign:'center',padding:32,color:'var(--muted)',fontSize:13}}>No transactions in selected range</div>):(<div className="tw"><table><thead><tr><th>Txn ID</th><th>Employee</th><th>ID</th><th>Tokens Paid</th><th>Amount</th><th>Date</th><th>Time</th></tr></thead><tbody>{filteredTxns.map(t=>(<tr key={t.id}><td className="mc" style={{fontSize:9,color:'var(--muted)'}}>{t.id}</td><td>{t.employeeName}</td><td className="mc" style={{color:'var(--primary)'}}>{t.employeeId}</td><td><span style={{fontFamily:'var(--mono)',color:'var(--success-mid)'}}>{t.tokensPaid}</span></td><td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:13}}>₹{t.amount.toLocaleString('en-IN')}</td><td style={{fontSize:10,color:'var(--muted)'}}>{t.date}</td><td style={{fontSize:10,color:'var(--muted)'}}>{fmtTime(t.timestamp)}</td></tr>))}</tbody></table></div>)}</div>
     </div>)}
   </div>);
 }
@@ -871,16 +917,16 @@ function AdminDashboard({user,toast}){
 
     {tab==='overview'&&(<>
       <div className="g4 mb14">
-        <div className="card"><div className="ct">Employees</div><div className="stat-n">{employees.length}</div><div className="stat-l">registered</div></div>
-        <div className="card"><div className="ct">Supervisors</div><div className="stat-n" style={{color:'var(--accent3)'}}>{supervisors.length}</div><div className="stat-l">active</div></div>
-        <div className="card"><div className="ct">Tokens Pending</div><div className="stat-n" style={{color:'var(--accent2)'}}>{totalToks}</div><div className="stat-l">this period</div></div>
-        <div className="card"><div className="ct">Total Paid Out</div><div className="stat-n" style={{color:'var(--accent)'}}>₹{totalPaid.toLocaleString('en-IN')}</div><div className="stat-l">all time</div></div>
+        <div className="card stat-card blue"><div className="ct">Employees</div><div className="stat-n">{employees.length}</div><div className="stat-l">registered</div></div>
+        <div className="card stat-card purple"><div className="ct">Supervisors</div><div className="stat-n" style={{color:'var(--purple)'}}>{supervisors.length}</div><div className="stat-l">active</div></div>
+        <div className="card stat-card green"><div className="ct">Tokens Pending</div><div className="stat-n" style={{color:'var(--success)'}}>{totalToks}</div><div className="stat-l">this period</div></div>
+        <div className="card stat-card gold"><div className="ct">Total Paid Out</div><div className="stat-n" style={{color:'#b45309'}}>₹{totalPaid.toLocaleString('en-IN')}</div><div className="stat-l">all time</div></div>
       </div>
       <div className="g2">
         <div className="card"><div className="ct">Top earners — current period</div>{[...employees].sort((a,b)=>(b.totalTokens||0)-(a.totalTokens||0)).slice(0,6).map(e=>(<div key={e.id} className="erow" style={{cursor:'default'}}><div className="avt avt-y">{e.name.charAt(0)}</div><div className="ei"><div className="en">{e.name}</div><div className="er">{e.id}</div></div><div><div className="etok">{e.totalTokens||0}</div><div className="etl">tokens</div></div></div>))}</div>
         <div className="card"><div className="ct">Today's activity</div>
-          <div className="g2" style={{marginBottom:12}}><div style={{padding:12,background:'var(--s2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TODAY TOKENS</div><div style={{fontFamily:'var(--mono)',fontSize:24,color:'var(--accent2)'}}>{todayTokens.length}</div></div><div style={{padding:12,background:'var(--s2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TODAY TXN</div><div style={{fontFamily:'var(--mono)',fontSize:24,color:'var(--accent)'}}>{transactions.filter(t=>t.date===today()).length}</div></div></div>
-          {transactions.slice(-3).reverse().map(t=>(<div key={t.id} className="slog-item"><span style={{fontSize:12}}>{t.employeeName}</span><span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--accent2)'}}>₹{t.amount.toLocaleString('en-IN')}</span></div>))}
+          <div className="g2" style={{marginBottom:12}}><div style={{padding:12,background:'var(--surface2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TODAY TOKENS</div><div style={{fontFamily:'var(--mono)',fontSize:24,color:'var(--success-mid)'}}>{todayTokens.length}</div></div><div style={{padding:12,background:'var(--surface2)',borderRadius:8,textAlign:'center'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:4}}>TODAY TXN</div><div style={{fontFamily:'var(--mono)',fontSize:24,color:'var(--primary)'}}>{transactions.filter(t=>t.date===today()).length}</div></div></div>
+          {transactions.slice(-3).reverse().map(t=>(<div key={t.id} className="slog-item"><span style={{fontSize:12}}>{t.employeeName}</span><span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--success-mid)'}}>₹{t.amount.toLocaleString('en-IN')}</span></div>))}
           {transactions.length===0&&<div style={{textAlign:'center',padding:20,color:'var(--muted)',fontSize:12}}>No transactions yet</div>}
         </div>
       </div>
@@ -893,11 +939,11 @@ function AdminDashboard({user,toast}){
         <div className="tw"><table><thead><tr><th>Employee</th><th>ID</th><th>Mobile</th><th>Pending Tokens</th><th>Lifetime Paid</th><th>Payable</th><th>Actions</th></tr></thead>
         <tbody>{fEmps.map(e=>(<tr key={e.id}>
           <td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="avt avt-y" style={{width:28,height:28,fontSize:10}}>{e.name.charAt(0)}</div>{e.name}</div></td>
-          <td className="mc" style={{color:'var(--accent)'}}>{e.id}</td>
-          <td className="mc" style={{color:'var(--muted2)'}}>{e.mobile||'—'}</td>
-          <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{e.totalTokens||0}</span></td>
-          <td className="mc" style={{color:'var(--muted2)'}}>{e.paidTokens||0}</td>
-          <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:12}}>
+          <td className="mc" style={{color:'var(--primary)'}}>{e.id}</td>
+          <td className="mc" style={{color:'var(--muted)'}}>{e.mobile||'—'}</td>
+          <td><span style={{fontFamily:'var(--mono)',color:'var(--success-mid)'}}>{e.totalTokens||0}</span></td>
+          <td className="mc" style={{color:'var(--muted)'}}>{e.paidTokens||0}</td>
+          <td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:12}}>
             ₹{tokens.filter(t=>t.assignedTo===e.id).reduce((s,t)=>s+(t.value||TOKEN_VALUE),0).toLocaleString('en-IN')}
           </td>
           <td><div style={{display:'flex',gap:6,flexWrap:'wrap',minWidth:0}}>
@@ -923,11 +969,11 @@ function AdminDashboard({user,toast}){
       <div className="card"><div className="tw"><table><thead><tr><th>Name</th><th>ID</th><th>Mobile</th><th>Username</th><th>QR ID</th><th>Tokens Assigned</th><th>Status</th><th>Action</th></tr></thead>
       <tbody>{supervisors.map(s=>{const asgn=tokens.filter(t=>t.assignedBySup===s.id).length;return(<tr key={s.id}>
         <td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="avt avt-p" style={{width:28,height:28,fontSize:10}}>{s.name.charAt(0)}</div>{s.name}</div></td>
-        <td className="mc" style={{color:'var(--accent3)'}}>{s.id}</td>
-        <td className="mc" style={{color:'var(--muted2)'}}>{s.mobile||'—'}</td>
+        <td className="mc" style={{color:'var(--purple)'}}>{s.id}</td>
+        <td className="mc" style={{color:'var(--muted)'}}>{s.mobile||'—'}</td>
         <td className="mc">{s.username}</td>
-        <td className="mc" style={{color:'var(--accent3)',fontSize:10}}>{s.qrId}</td>
-        <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{asgn}</span></td>
+        <td className="mc" style={{color:'var(--purple)',fontSize:10}}>{s.qrId}</td>
+        <td><span style={{fontFamily:'var(--mono)',color:'var(--success-mid)'}}>{asgn}</span></td>
         <td><span className="badge b-green">Active</span></td>
         <td><div style={{display:'flex',gap:6}}><button className="btn btn-ghost btn-sm" onClick={()=>setEditSup(s)}>✏️</button><button className="btn btn-danger btn-sm" onClick={()=>handleRemoveSup(s.id,s.name)}>🗑</button></div></td>
       </tr>);})}</tbody></table></div></div>
@@ -941,8 +987,8 @@ function AdminDashboard({user,toast}){
         <tbody>{tokens.filter(t=>t.id.includes(searchTok.toUpperCase())||(t.assignedTo||'').includes(searchTok.toUpperCase())).slice(0,80).map(t=>(<tr key={t.id}>
           <td className="mc">{t.id}</td>
           <td><span className={`badge ${t.assignedTo?'b-green':'b-gray'}`}>{t.assignedTo?'Assigned':'Free'}</span></td>
-          <td className="mc" style={{color:'var(--accent)'}}>{t.assignedTo||'—'}</td>
-          <td style={{fontSize:11,color:'var(--muted2)'}}>{t.assignedBy||'—'}</td>
+          <td className="mc" style={{color:'var(--primary)'}}>{t.assignedTo||'—'}</td>
+          <td style={{fontSize:11,color:'var(--muted)'}}>{t.assignedBy||'—'}</td>
           <td style={{fontSize:10,color:'var(--muted)'}}>{t.lockedDate||'—'}</td>
           <td style={{fontSize:10,color:'var(--muted)'}}>{t.assignedAt?fmtTime(t.assignedAt):'—'}</td>
           <td><button className="btn btn-danger btn-sm" onClick={()=>handleDeleteToken(t)}>🗑 Delete</button></td>
@@ -957,11 +1003,11 @@ function AdminDashboard({user,toast}){
       <tbody>
         {tokens.length===0&&(<tr><td colSpan={7} style={{textAlign:'center',color:'var(--muted)',padding:32}}>No tokens registered yet. Click "+ Register Token" to add.</td></tr>)}
         {[...tokens].reverse().map(t=>(<tr key={t.id}>
-          <td className="mc" style={{color:'var(--accent2)'}}>{t.id}</td>
-          <td style={{fontFamily:'var(--mono)',color:'var(--accent)'}}>₹{t.value||TOKEN_VALUE}</td>
+          <td className="mc" style={{color:'var(--success-mid)'}}>{t.id}</td>
+          <td style={{fontFamily:'var(--mono)',color:'var(--primary)'}}>₹{t.value||TOKEN_VALUE}</td>
           <td><span className={`badge ${t.assignedTo?'b-green':'b-gray'}`}>{t.assignedTo?'Assigned':'Free'}</span></td>
-          <td className="mc" style={{color:'var(--accent)'}}>{t.assignedTo||'—'}</td>
-          <td style={{fontSize:11,color:'var(--muted2)'}}>{t.assignedBy||'—'}</td>
+          <td className="mc" style={{color:'var(--primary)'}}>{t.assignedTo||'—'}</td>
+          <td style={{fontSize:11,color:'var(--muted)'}}>{t.assignedBy||'—'}</td>
           <td style={{fontSize:10,color:'var(--muted)'}}>{t.lockedDate||'—'}</td>
           <td><div style={{display:'flex',gap:6}}>
             <button className="btn btn-ghost btn-sm" onClick={()=>setEditTok(t)}>✏️ Edit</button>
@@ -980,12 +1026,12 @@ function AdminDashboard({user,toast}){
         {employees.filter(e=>(e.totalTokens||0)>0).length===0&&(<div className="card" style={{gridColumn:'1/-1',textAlign:'center',padding:40,color:'var(--muted)'}}>No employees with pending tokens</div>)}
         {employees.filter(e=>(e.totalTokens||0)>0).sort((a,b)=>b.totalTokens-a.totalTokens).map(e=>(<div key={e.id} className="card" style={{borderColor:'rgba(61,232,160,.2)'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
-            <div style={{display:'flex',alignItems:'center',gap:10}}><div className="avt avt-y">{e.name.charAt(0)}</div><div><div style={{fontWeight:600}}>{e.name}</div><div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--accent)',marginTop:2}}>{e.id}</div></div></div>
+            <div style={{display:'flex',alignItems:'center',gap:10}}><div className="avt avt-y">{e.name.charAt(0)}</div><div><div style={{fontWeight:600}}>{e.name}</div><div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--primary)',marginTop:2}}>{e.id}</div></div></div>
             <span className="badge b-green">{e.totalTokens} tokens</span>
           </div>
           <div className="payout-box" style={{padding:14,marginBottom:12}}>
             <div style={{fontSize:11,color:'var(--muted)'}}>Max Payable</div>
-            <div style={{fontFamily:'var(--mono)',fontSize:26,color:'var(--accent2)',lineHeight:1.2}}>₹{tokens.filter(t=>t.assignedTo===e.id).reduce((s,t)=>s+(t.value||TOKEN_VALUE),0).toLocaleString('en-IN')}</div>
+            <div style={{fontFamily:'var(--mono)',fontSize:26,color:'var(--success-mid)',lineHeight:1.2}}>₹{tokens.filter(t=>t.assignedTo===e.id).reduce((s,t)=>s+(t.value||TOKEN_VALUE),0).toLocaleString('en-IN')}</div>
           </div>
           <button className="btn btn-warn btn-full btn-sm" onClick={()=>setPayoutEmp(e)}>SELECT TOKENS & PAY →</button>
         </div>))}
@@ -994,11 +1040,11 @@ function AdminDashboard({user,toast}){
         {transactions.length===0?(<div style={{textAlign:'center',padding:24,color:'var(--muted)',fontSize:12}}>No transactions yet</div>):(
           <div className="tw"><table><thead><tr><th>Txn ID</th><th>Employee</th><th>ID</th><th>Tokens Paid</th><th>Amount</th><th>Remaining</th><th>Date</th></tr></thead>
           <tbody>{[...transactions].reverse().map(t=>(<tr key={t.id}>
-            <td className="mc" style={{fontSize:10,color:'var(--muted2)'}}>{t.id}</td>
+            <td className="mc" style={{fontSize:10,color:'var(--muted)'}}>{t.id}</td>
             <td>{t.employeeName}</td>
-            <td className="mc" style={{color:'var(--accent)'}}>{t.employeeId}</td>
-            <td><span style={{fontFamily:'var(--mono)',color:'var(--accent2)'}}>{t.tokensPaid}</span></td>
-            <td style={{fontFamily:'var(--mono)',color:'var(--accent)',fontSize:13}}>₹{t.amount.toLocaleString('en-IN')}</td>
+            <td className="mc" style={{color:'var(--primary)'}}>{t.employeeId}</td>
+            <td><span style={{fontFamily:'var(--mono)',color:'var(--success-mid)'}}>{t.tokensPaid}</span></td>
+            <td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:13}}>₹{t.amount.toLocaleString('en-IN')}</td>
             <td style={{fontFamily:'var(--mono)',color:'var(--warn)',fontWeight:600}}>₹{t.remainingAmount!==undefined?t.remainingAmount:(t.remainingTokens||0)*TOKEN_VALUE}</td>
             <td style={{fontSize:11,color:'var(--muted)'}}>{t.date}</td>
           </tr>))}</tbody></table></div>
@@ -1069,12 +1115,12 @@ function SupervisorPanel({user,toast}){
     {feedback&&<FullScreenFeedback {...feedback} onDone={()=>setFeedback(null)}/>}
     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
       <div style={{display:'flex',alignItems:'center',gap:6,fontFamily:'var(--mono)',fontSize:11}}>
-        <div style={{width:24,height:24,borderRadius:'50%',background:step==='verify'?'var(--accent)':'var(--accent2)',color:'#07070d',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,flexShrink:0}}>1</div>
+        <div style={{width:24,height:24,borderRadius:'50%',background:step==='verify'?'var(--accent)':'var(--accent2)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,flexShrink:0}}>1</div>
         <span style={{color:step==='verify'?'var(--accent)':'var(--accent2)',fontSize:'clamp(9px,2.5vw,11px)'}}>Verify Employee</span>
       </div>
       <div style={{flex:1,height:1,background:step==='tokens'?'var(--accent2)':'var(--border)'}}/>
       <div style={{display:'flex',alignItems:'center',gap:6,fontFamily:'var(--mono)',fontSize:11}}>
-        <div style={{width:24,height:24,borderRadius:'50%',background:step==='tokens'?'var(--accent2)':'var(--border2)',color:step==='tokens'?'#07070d':'var(--muted)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,flexShrink:0}}>2</div>
+        <div style={{width:24,height:24,borderRadius:'50%',background:step==='tokens'?'var(--accent2)':'var(--border2)',color:step==='tokens'?'#fff':'var(--muted)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,flexShrink:0}}>2</div>
         <span style={{color:step==='tokens'?'var(--accent2)':'var(--muted)',fontSize:'clamp(9px,2.5vw,11px)'}}>Assign Tokens</span>
       </div>
       {verifiedEmp&&<button className="btn btn-ghost btn-sm" onClick={resetSession} style={{flexShrink:0}}>↩ New</button>}
@@ -1104,9 +1150,9 @@ function SupervisorPanel({user,toast}){
         <div className="card"><div className="ct">Scan Token QR</div>
           {tokCam?(<CamScanner onScan={assignToken} onClose={()=>setTokCam(false)} label="Scan token QR code..."/>):(
             <div className="scanbox"><div className="scan-icon">🎟️</div>
-              <div className="scan-hint" style={{marginBottom:16}}>Point camera at the token QR card to assign to <strong style={{color:'var(--accent2)'}}>{verifiedEmp.name}</strong></div>
+              <div className="scan-hint" style={{marginBottom:16}}>Point camera at the token QR card to assign to <strong style={{color:'var(--success-mid)'}}>{verifiedEmp.name}</strong></div>
               <button className="btn btn-success" style={{margin:'0 auto'}} onClick={()=>setTokCam(true)}>📷 Open Camera to Scan Token</button>
-              {tokBusy&&<div style={{marginTop:12,fontFamily:'var(--mono)',fontSize:11,color:'var(--accent2)'}}>Assigning...</div>}
+              {tokBusy&&<div style={{marginTop:12,fontFamily:'var(--mono)',fontSize:11,color:'var(--success-mid)'}}>Assigning...</div>}
             </div>
           )}
         </div>
@@ -1114,7 +1160,7 @@ function SupervisorPanel({user,toast}){
       <div><div className="card">
         <div className="sh"><div className="ct" style={{margin:0}}>Session Log</div><span className="badge b-yellow">{sessionTokens.length} assigned</span></div>
         {sessionTokens.length===0?(<div style={{textAlign:'center',padding:32,color:'var(--muted)',fontSize:13}}>No tokens assigned yet this session</div>):(
-          <div style={{maxHeight:360,overflowY:'auto'}}>{[...sessionTokens].reverse().map((t,i)=>(<div key={i} className="slog-item"><span className="mc" style={{color:'var(--accent2)'}}>{t.tokenId}</span><span style={{color:'var(--muted)',fontSize:10}}>{t.at}</span></div>))}</div>
+          <div style={{maxHeight:360,overflowY:'auto'}}>{[...sessionTokens].reverse().map((t,i)=>(<div key={i} className="slog-item"><span className="mc" style={{color:'var(--success-mid)'}}>{t.tokenId}</span><span style={{color:'var(--muted)',fontSize:10}}>{t.at}</span></div>))}</div>
         )}
         {sessionTokens.length>0&&(<div style={{marginTop:12,fontSize:10,color:'var(--muted)',fontFamily:'var(--mono)'}}>Session: {sessionId.slice(0,16)}<br/>Emp: {verifiedEmp.id}</div>)}
       </div></div>
@@ -1136,7 +1182,7 @@ function App(){
         </div>
       </div>
       <div className="main">
-        <div className="demo-banner">⚡ TOKENPAY LIVE — Powered by Firebase · {new Date().toLocaleDateString('en-IN')}</div>
+        <div className="demo-banner"><span>⚡</span><span>SS EXPORTS · TokenPay Live — Powered by Firebase · {new Date().toLocaleDateString('en-IN')}</span></div>
         {user.role==='admin'?<AdminDashboard user={user} toast={toast}/>:<SupervisorPanel user={user} toast={toast}/>}
       </div>
     </>)}
