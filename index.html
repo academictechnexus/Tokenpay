@@ -248,81 +248,105 @@ tbody tr:hover td{background:var(--primary-light)}
 
 /* ── MOBILE ── */
 @media(max-width:640px){
-  /* grids collapse to 1 col */
+  /* ── grids ── */
   .g2,.g3,.g4,.fg-row,.fg-row3{grid-template-columns:1fr !important}
 
-  /* layout */
+  /* ── layout ── */
   .main{padding:12px 10px}
+
+  /* ── topbar: hide username on mobile, keep brand + badge + logout ── */
   .topbar{padding:0 12px;height:52px}
-  .brand{font-size:11px;letter-spacing:2px}
+  .brand{font-size:10px;letter-spacing:2px}
+  .topbar-username{display:none}
+  .rbadge{font-size:8px;padding:2px 7px}
+  .btn-out{font-size:8px;padding:4px 9px}
 
-  /* tabs — scrollable row */
-  .tabs{padding:0 2px;border-radius:8px 8px 0 0;margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap}
-  .tab{font-size:8px;padding:11px 10px;letter-spacing:.5px;flex-shrink:0}
+  /* ── universal scan button: hide on mobile (use tab instead) ── */
+  .uniscan-btn{display:none}
 
-  /* cards */
-  .card{padding:12px 14px}
+  /* ── tabs: horizontal scroll, no wrap ── */
+  .tabs{
+    display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;
+    padding:0;margin-bottom:12px;border-radius:8px 8px 0 0;
+    scrollbar-width:none;
+  }
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{
+    font-size:8px;padding:12px 11px;letter-spacing:.5px;
+    flex:0 0 auto;scroll-snap-align:start;white-space:nowrap;
+  }
+
+  /* ── demo banner ── */
+  .demo-banner{font-size:9px;padding:8px 10px;flex-wrap:wrap;gap:4px}
+
+  /* ── cards ── */
+  .card{padding:12px 12px}
   .stat-n{font-size:22px}
-  .ct{font-size:9px}
+  .ct{font-size:9px;letter-spacing:1px}
 
-  /* modals — slide up from bottom */
-  .overlay{padding:0;align-items:flex-end}
-  .modal{max-width:100% !important;border-radius:14px 14px 0 0;padding:20px 16px;max-height:92vh;overflow-y:auto}
-  .modal-footer{flex-direction:column;gap:8px}
+  /* ── tables: horizontal scroll container ── */
+  .tw{
+    overflow-x:auto;-webkit-overflow-scrolling:touch;
+    margin:0 -12px;padding:0 12px;
+    scrollbar-width:none;
+  }
+  .tw::-webkit-scrollbar{display:none}
+  table{min-width:560px;font-size:12px}
+  thead th{font-size:8px;padding:9px 10px;white-space:nowrap}
+  tbody td{padding:9px 10px;font-size:12px}
+
+  /* ── buttons ── */
+  .btn-sm{font-size:10px;padding:5px 9px}
+  .btn{font-size:11px;padding:8px 14px}
+
+  /* ── modals: slide up from bottom ── */
+  .overlay{padding:0 !important;align-items:flex-end}
+  .modal{
+    max-width:100% !important;width:100% !important;
+    border-radius:14px 14px 0 0;
+    padding:20px 16px 28px;max-height:92vh;overflow-y:auto;
+  }
+  .modal-footer{flex-direction:column;gap:8px;padding-top:14px}
   .modal-footer .btn{width:100%;justify-content:center}
 
-  /* tables — horizontal scroll */
-  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  table{min-width:500px}
-  thead th{font-size:8px;padding:9px 10px}
-  tbody td{padding:10px 10px;font-size:12px}
-
-  /* action buttons in table — icon only */
-  .btn-sm{font-size:10px;padding:5px 9px}
-
-  /* scanner */
+  /* ── scanner ── */
   .scanbox{padding:20px 12px}
-  .scan-input{max-width:100%;font-size:13px}
+  .scan-input{max-width:100%;font-size:14px}
   .scan-icon{font-size:28px}
 
-  /* toasts */
-  .toast-wrap{left:8px;right:8px;bottom:10px}
-  .toast{max-width:100%;font-size:12px}
+  /* ── employee rows ── */
+  .erow{padding:8px 10px}
+  .avt{width:30px;height:30px;font-size:11px;flex-shrink:0}
+  .en{font-size:12px}
+  .etok{font-size:14px}
 
-  /* reports */
-  .report-header{flex-direction:column;gap:6px;align-items:flex-start}
+  /* ── verify badges ── */
+  .verify-badge{font-size:11px;padding:10px 12px;flex-wrap:wrap}
 
-  /* token checklist */
-  .tok-check-list{max-height:220px}
+  /* ── token checklist ── */
+  .tok-check-list{max-height:200px}
   .tok-by{display:none}
   .tok-id{font-size:10px}
 
-  /* payout */
-  .payout-stats-row{gap:12px}
-  .payout-amount{font-size:26px}
+  /* ── payout ── */
+  .payout-stats-row{gap:10px}
+  .payout-amount{font-size:24px}
 
-  /* employee row */
-  .erow{padding:8px 10px}
-  .avt{width:30px;height:30px;font-size:11px}
-  .en{font-size:12px}
+  /* ── toasts ── */
+  .toast-wrap{left:8px;right:8px;bottom:10px}
+  .toast{max-width:100%;font-size:12px}
 
-  /* demo banner */
-  .demo-banner{font-size:10px;padding:8px 12px}
-
-  /* verify badges */
-  .verify-badge{font-size:11px;padding:10px 14px}
-
-  /* filter bars */
-  .sbar input{font-size:13px}
+  /* ── reports ── */
+  .report-header{flex-direction:column;gap:6px;align-items:flex-start}
 }
 
-/* touch targets */
+/* ── touch targets ── */
 @media(hover:none) and (pointer:coarse){
   .btn{min-height:44px}
   .tab{min-height:44px}
-  .erow{min-height:48px}
+  .erow{min-height:46px}
   .tok-check-item{min-height:44px}
-  .btn-sm{min-height:40px}
   input,select,textarea{font-size:16px !important}
 }
 </style>
@@ -974,7 +998,7 @@ function AdminDashboard({user,toast}){
 
   return(<div>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-      <div/><button onClick={()=>setShowScan(true)} style={{fontFamily:'var(--sans)',fontSize:12,fontWeight:600,padding:'8px 16px',borderRadius:8,border:'1.5px solid var(--border2)',background:'var(--surface)',color:'var(--text2)',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:6}}>🔍 Universal Scan</button>
+      <div/><button className="uniscan-btn" onClick={()=>setShowScan(true)} style={{fontFamily:'var(--sans)',fontSize:12,fontWeight:600,padding:'8px 16px',borderRadius:8,border:'1.5px solid var(--border2)',background:'var(--surface)',color:'var(--text2)',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:6}}>🔍 Universal Scan</button>
     </div>
     <div className="tabs">{TABS.map(t=>(<button key={t} className={`tab ${tab===t?'active':''}`} onClick={()=>setTab(t)}>{t.replace('-',' ')}</button>))}</div>
 
