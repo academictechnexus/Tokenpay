@@ -246,109 +246,116 @@ tbody tr:hover td{background:var(--primary-light)}
 @keyframes fsPop{from{opacity:0}to{opacity:1}}
 @keyframes fsBounce{0%{transform:scale(0)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
 
-/* ── MOBILE ── */
+
+/* ── MOBILE NAV DROPDOWN ── */
+.mobile-nav{display:none;margin-bottom:16px}
+.mobile-tab-select{
+  width:100%;background:#fff;border:2px solid var(--primary);
+  border-radius:10px;padding:12px 16px;color:var(--text);
+  font-family:var(--sans);font-size:14px;font-weight:600;
+  outline:none;appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238B5E3C' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;
+  cursor:pointer;
+}
+
+/* ── DESKTOP shows table, hides cards ── */
+.desktop-table{display:block}
+.desktop-tabs{display:flex}
+.mobile-cards{display:none}
+
+/* ── MOBILE EMP CARDS ── */
+.mobile-emp-card{
+  background:#fff;border:1px solid var(--border);border-radius:12px;
+  padding:16px;margin-bottom:10px;box-shadow:var(--shadow);
+}
+
+/* ── MOBILE OVERRIDES ── */
 @media(max-width:640px){
-  /* ── grids ── */
+  /* grids */
   .g2,.g3,.g4,.fg-row,.fg-row3{grid-template-columns:1fr !important}
 
-  /* ── layout ── */
+  /* layout */
   .main{padding:12px 10px}
-
-  /* ── topbar: hide username on mobile, keep brand + badge + logout ── */
   .topbar{padding:0 12px;height:52px}
   .brand{font-size:10px;letter-spacing:2px}
   .topbar-username{display:none}
   .rbadge{font-size:8px;padding:2px 7px}
   .btn-out{font-size:8px;padding:4px 9px}
-
-  /* ── universal scan button: hide on mobile (use tab instead) ── */
   .uniscan-btn{display:none}
+  .demo-banner{font-size:9px;padding:8px 10px}
 
-  /* ── tabs: horizontal scroll, no wrap ── */
-  .tabs{
-    display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
-    -webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;
-    padding:0;margin-bottom:12px;border-radius:8px 8px 0 0;
-    scrollbar-width:none;
-  }
-  .tabs::-webkit-scrollbar{display:none}
-  .tab{
-    font-size:8px;padding:12px 11px;letter-spacing:.5px;
-    flex:0 0 auto;scroll-snap-align:start;white-space:nowrap;
-  }
+  /* tabs — hide desktop, show dropdown */
+  .desktop-tabs{display:none !important}
+  .mobile-nav{display:block}
 
-  /* ── demo banner ── */
-  .demo-banner{font-size:9px;padding:8px 10px;flex-wrap:wrap;gap:4px}
+  /* hide desktop tables, show mobile cards */
+  .desktop-table{display:none !important}
+  .mobile-cards{display:block}
 
-  /* ── cards ── */
+  /* cards */
   .card{padding:12px 12px}
-  .stat-n{font-size:22px}
+  .stat-n{font-size:20px}
   .ct{font-size:9px;letter-spacing:1px}
 
-  /* ── tables: horizontal scroll container ── */
-  .tw{
-    overflow-x:auto;-webkit-overflow-scrolling:touch;
-    margin:0 -12px;padding:0 12px;
-    scrollbar-width:none;
-  }
+  /* other tables (tokens, supervisors etc) — horizontal scroll */
+  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .tw::-webkit-scrollbar{display:none}
-  table{min-width:560px;font-size:12px}
-  thead th{font-size:8px;padding:9px 10px;white-space:nowrap}
+  table{min-width:520px}
+  thead th{font-size:8px;padding:8px 10px}
   tbody td{padding:9px 10px;font-size:12px}
 
-  /* ── buttons ── */
+  /* buttons */
   .btn-sm{font-size:10px;padding:5px 9px}
   .btn{font-size:11px;padding:8px 14px}
 
-  /* ── modals: slide up from bottom ── */
+  /* modals */
   .overlay{padding:0 !important;align-items:flex-end}
-  .modal{
-    max-width:100% !important;width:100% !important;
-    border-radius:14px 14px 0 0;
-    padding:20px 16px 28px;max-height:92vh;overflow-y:auto;
-  }
-  .modal-footer{flex-direction:column;gap:8px;padding-top:14px}
+  .modal{max-width:100% !important;width:100% !important;border-radius:14px 14px 0 0;padding:20px 16px 28px;max-height:92vh;overflow-y:auto}
+  .modal-footer{flex-direction:column;gap:8px}
   .modal-footer .btn{width:100%;justify-content:center}
 
-  /* ── scanner ── */
+  /* scanner */
   .scanbox{padding:20px 12px}
-  .scan-input{max-width:100%;font-size:14px}
+  .scan-input{max-width:100%}
   .scan-icon{font-size:28px}
 
-  /* ── employee rows ── */
+  /* employee rows in lists */
   .erow{padding:8px 10px}
-  .avt{width:30px;height:30px;font-size:11px;flex-shrink:0}
+  .avt{width:30px;height:30px;font-size:11px}
   .en{font-size:12px}
-  .etok{font-size:14px}
 
-  /* ── verify badges ── */
-  .verify-badge{font-size:11px;padding:10px 12px;flex-wrap:wrap}
+  /* verify */
+  .verify-badge{font-size:11px;padding:10px 12px}
 
-  /* ── token checklist ── */
+  /* token checklist */
   .tok-check-list{max-height:200px}
   .tok-by{display:none}
-  .tok-id{font-size:10px}
 
-  /* ── payout ── */
-  .payout-stats-row{gap:10px}
+  /* payout */
+  .payout-stats-row{gap:10px;justify-content:space-around}
   .payout-amount{font-size:24px}
 
-  /* ── toasts ── */
+  /* toasts */
   .toast-wrap{left:8px;right:8px;bottom:10px}
   .toast{max-width:100%;font-size:12px}
 
-  /* ── reports ── */
+  /* reports */
   .report-header{flex-direction:column;gap:6px;align-items:flex-start}
+
+  /* step indicator */
+  .step-label{display:none}
 }
 
-/* ── touch targets ── */
+/* touch targets */
 @media(hover:none) and (pointer:coarse){
   .btn{min-height:44px}
-  .tab{min-height:44px}
+  .mobile-tab-select{min-height:50px}
   .erow{min-height:46px}
   .tok-check-item{min-height:44px}
   input,select,textarea{font-size:16px !important}
 }
+
 </style>
 </head>
 <body>
@@ -1000,7 +1007,14 @@ function AdminDashboard({user,toast}){
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
       <div/><button className="uniscan-btn" onClick={()=>setShowScan(true)} style={{fontFamily:'var(--sans)',fontSize:12,fontWeight:600,padding:'8px 16px',borderRadius:8,border:'1.5px solid var(--border2)',background:'var(--surface)',color:'var(--text2)',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:6}}>🔍 Universal Scan</button>
     </div>
-    <div className="tabs">{TABS.map(t=>(<button key={t} className={`tab ${tab===t?'active':''}`} onClick={()=>setTab(t)}>{t.replace('-',' ')}</button>))}</div>
+    {/* Desktop tabs */}
+    <div className="tabs desktop-tabs">{TABS.map(t=>(<button key={t} className={`tab ${tab===t?'active':''}`} onClick={()=>setTab(t)}>{t.replace('-',' ')}</button>))}</div>
+    {/* Mobile dropdown */}
+    <div className="mobile-nav">
+      <select value={tab} onChange={e=>setTab(e.target.value)} className="mobile-tab-select">
+        {TABS.map(t=>(<option key={t} value={t}>{t.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</option>))}
+      </select>
+    </div>
 
     {tab==='overview'&&(<>
       <div className="g4 mb14">
@@ -1023,31 +1037,55 @@ function AdminDashboard({user,toast}){
       <div className="sh mb14"><span className="st">Employee Profiles ({employees.length})</span><button className="btn btn-success btn-sm" onClick={()=>setShowAddEmp(true)}>+ Register Employee</button></div>
       <div className="card">
         <div className="sbar"><input value={searchEmp} onChange={e=>setSearchEmp(e.target.value)} placeholder="Search name, EMP ID, mobile..."/></div>
-        <div className="tw"><table><thead><tr><th>Employee</th><th>ID</th><th>Mobile</th><th>Pending Tokens</th><th>Lifetime Paid</th><th>Payable</th><th>Actions</th></tr></thead>
+        <div className="tw desktop-table"><table><thead><tr><th>Employee</th><th>ID</th><th>Mobile</th><th>Pending Tokens</th><th>Lifetime Paid</th><th>Payable</th><th>Actions</th></tr></thead>
         <tbody>{fEmps.map(e=>(<tr key={e.id}>
           <td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="avt avt-y" style={{width:28,height:28,fontSize:10}}>{e.name.charAt(0)}</div>{e.name}</div></td>
           <td className="mc" style={{color:'var(--primary)'}}>{e.id}</td>
           <td className="mc" style={{color:'var(--muted)'}}>{e.mobile||'—'}</td>
           <td><span style={{fontFamily:'var(--mono)',color:'var(--success)',fontSize:14,fontWeight:700,background:'var(--success-light)',padding:'3px 10px',borderRadius:20,border:'1px solid #a3d9c0'}}>{e.totalTokens||0}</span></td>
           <td style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text2)',fontWeight:500}}>{e.paidTokens||0}</td>
-          <td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:12}}>
-            ₹{tokens.filter(t=>t.assignedTo===e.id).reduce((s,t)=>s+(t.value||TOKEN_VALUE),0).toLocaleString('en-IN')}
-          </td>
-          <td><div style={{display:'flex',gap:6,flexWrap:'wrap',minWidth:0}}>
+          <td>₹{tokens.filter(t=>t.assignedTo===e.id).reduce((s,t)=>s+(t.value||TOKEN_VALUE),0).toLocaleString('en-IN')}</td>
+          <td><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
             <button className="btn btn-ghost btn-sm" onClick={()=>setEditEmp(e)}>✏️</button>
             <button className="btn btn-warn btn-sm" onClick={()=>setPayoutEmp(e)}>💰 Pay</button>
-            <button className="btn btn-danger btn-sm" onClick={async()=>{
-              if(!window.confirm(`Reset ALL tokens for ${e.name}? Remaining balance will be recorded.`))return;
-              try{
-                const bal=(e.totalTokens||0)*(e.tokenValue||TOKEN_VALUE);
-                await firestore.collection('employees').doc(e.id).update({balanceAmount:firebase.firestore.FieldValue.increment(bal)});
-                await db.payEmployee(e.id,e.totalTokens,true);
-                toast.show('Token reset completed for '+e.name,'success');load();
-              }catch(err){toast.show(err.message,'error');}
-            }}>↺ Reset</button>
+            <button className="btn btn-danger btn-sm" onClick={async()=>{if(!window.confirm(`Reset ALL tokens for ${e.name}?`))return;try{const bal=(e.totalTokens||0)*(e.tokenValue||TOKEN_VALUE);await firestore.collection('employees').doc(e.id).update({balanceAmount:firebase.firestore.FieldValue.increment(bal)});await db.payEmployee(e.id,e.totalTokens,true);toast.show('Token reset completed for '+e.name,'success');load();}catch(err){toast.show(err.message,'error');}}}>↺</button>
             <button className="btn btn-danger btn-sm" onClick={()=>handleRemoveEmp(e.id,e.name)}>🗑</button>
           </div></td>
         </tr>))}</tbody></table></div>
+        {/* Mobile employee cards */}
+        <div className="mobile-cards">{fEmps.map(e=>(
+          <div key={e.id} className="mobile-emp-card">
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div className="avt avt-y" style={{width:40,height:40,fontSize:15}}>{e.name.charAt(0)}</div>
+                <div>
+                  <div style={{fontWeight:700,fontSize:14,color:'var(--text)'}}>{e.name}</div>
+                  <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--primary)',marginTop:2}}>{e.id}</div>
+                  {e.mobile&&<div style={{fontSize:11,color:'var(--muted)',marginTop:1}}>📞 {e.mobile}</div>}
+                </div>
+              </div>
+              <div style={{textAlign:'right',flexShrink:0}}>
+                <div style={{fontFamily:'var(--mono)',fontSize:24,fontWeight:700,color:'var(--success)',lineHeight:1}}>{e.totalTokens||0}</div>
+                <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>pending tokens</div>
+              </div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
+              <div style={{background:'var(--surface2)',borderRadius:8,padding:'8px 12px',border:'1px solid var(--border)'}}>
+                <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:'var(--muted)',textTransform:'uppercase',marginBottom:3}}>Lifetime Paid</div>
+                <div style={{fontFamily:'var(--mono)',fontSize:16,fontWeight:700,color:'var(--text2)'}}>{e.paidTokens||0}</div>
+              </div>
+              <div style={{background:'var(--success-light)',borderRadius:8,padding:'8px 12px',border:'1px solid #a3d9c0'}}>
+                <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:'var(--success)',textTransform:'uppercase',marginBottom:3}}>Payable Now</div>
+                <div style={{fontFamily:'var(--mono)',fontSize:16,fontWeight:700,color:'var(--warn)'}}>₹{tokens.filter(t=>t.assignedTo===e.id).reduce((s,t)=>s+(t.value||TOKEN_VALUE),0).toLocaleString('en-IN')}</div>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn btn-ghost btn-sm" style={{flex:1,justifyContent:'center'}} onClick={()=>setEditEmp(e)}>✏️ Edit</button>
+              <button className="btn btn-warn btn-sm" style={{flex:1,justifyContent:'center'}} onClick={()=>setPayoutEmp(e)}>💰 Pay</button>
+              <button className="btn btn-danger btn-sm" style={{flex:1,justifyContent:'center'}} onClick={()=>handleRemoveEmp(e.id,e.name)}>🗑</button>
+            </div>
+          </div>
+        ))}</div>
       </div>
     </>)}
 
