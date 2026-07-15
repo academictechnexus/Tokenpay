@@ -1251,19 +1251,21 @@ function SupervisorPanel({user,toast}){
       {verifiedEmp&&<button className="btn btn-ghost btn-sm" onClick={resetSession} style={{flexShrink:0}}>↩ New</button>}
     </div>
 
-    {step==='verify'&&(<div className="g2">
-      <div><div className="card"><div className="ct">Scan Employee QR Card</div>
-        {empCam?(<CamScanner onScan={verifyEmployee} onClose={()=>setEmpCam(false)} label="Scan employee QR card..."/>):(
-          <div className="scanbox"><div className="scan-icon">🪪</div><div className="scan-hint">Scan the employee's QR card or enter their Employee ID</div>
-            <input className="scan-input" value={empManual} onChange={e=>setEmpManual(e.target.value.toUpperCase())} onKeyDown={e=>e.key==='Enter'&&verifyEmployee(empManual)} placeholder="EMP001" autoFocus/>
-            <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}><button className="btn btn-ghost btn-sm" onClick={()=>setEmpCam(true)}>📷 Camera</button><button className="btn btn-success btn-sm" onClick={()=>verifyEmployee(empManual)} disabled={!empManual.trim()}>Verify →</button></div>
+    {step==='verify'&&(<div>
+      <div className="card">
+        <div className="ct">Scan Employee QR Card</div>
+        {empCam?(
+          <CamScanner onScan={verifyEmployee} onClose={()=>setEmpCam(false)} label="Scan employee QR card..."/>
+        ):(
+          <div className="scanbox">
+            <div className="scan-icon">🪪</div>
+            <div className="scan-hint">Point camera at the employee's QR card to verify them</div>
+            <div style={{marginTop:16}}>
+              <button className="btn btn-primary btn-full" onClick={()=>setEmpCam(true)}>📷 Scan Employee QR Card</button>
+            </div>
           </div>
         )}
-      </div></div>
-      <div><div className="card"><div className="ct">Or select from list</div>
-        <div className="sbar"><input value={empSearch} onChange={e=>setEmpSearch(e.target.value)} placeholder="Search employee..."/></div>
-        <div style={{maxHeight:320,overflowY:'auto'}}>{fEmps.map(e=>(<div key={e.id} className="erow" onClick={()=>verifyEmployee(e.id)}><div className="avt avt-y">{e.name.charAt(0)}</div><div className="ei"><div className="en">{e.name}</div><div className="er">{e.id}</div></div><div><div className="etok" style={{fontSize:13}}>{e.totalTokens||0}</div><div className="etl">tokens</div></div></div>))}</div>
-      </div></div>
+      </div>
     </div>)}
 
     {step==='tokens'&&verifiedEmp&&(<div className="g2">
