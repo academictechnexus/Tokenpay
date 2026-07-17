@@ -949,6 +949,246 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
   </div>);
 }
 
+// ═══════════════════════════════════════════════════
+// BULK QR IMAGE UPLOAD MODAL
+// ═══════════════════════════════════════════════════
+function BulkUploadModal({onClose,onDone,toast,existingTokens}){
+  const[stage,setStage]=useState('pick'); // pick | preview | uploading | done
+  const[tokenValue,setTokenValue]=useState(TOKEN_VALUE);
+  const[scanned,setScanned]=useState([]); // [{id,file,status}]
+  const[processing,setProcessing]=useState(false);
+  const[progress,setProgress]=useState({done:0,total:0,skipped:0,errors:0});
+  const fileRef=useRef();
+
+  // Decode QR from image file using jsQR
+  const decodeQR=async(file)=>{
+    return new Promise((resolve)=>{
+      const img=new Image();
+      const url=URL.createObjectURL(file);
+      img.onload=()=>{
+        const canvas=document.createElement('canvas');
+        canvas.width=img.width;canvas.height=img.height;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0);
+        const imageData=ctx.getImageData(0,0,img.width,img.height);
+        const code=window.jsQR&&window.jsQR(imageData.data,img.width,img.height);
+        URL.revokeObjectURL(url);
+        resolve(code?code.data.trim().toUpperCase():null);
+      };
+      img.onerror=()=>{URL.revokeObjectURL(url);resolve(null);};
+      img.src=url;
+    });
+  };
+
+  const handleFiles=async(e)=>{
+    const files=Array.from(e.target.files);
+    if(!files.length) return;
+    setProcessing(true);
+    setProgress({done:0,total:files.length,skipped:0,errors:0});
+    const existingIds=new Set(existingTokens.map(t=>t.id));
+    const results=[];
+    let skipped=0,errors=0;
+
+    // Process in chunks of 20 to avoid freezing browser
+    for(let i=0;i<files.length;i+=20){
+      const chunk=files.slice(i,i+20);
+      const decoded=await Promise.all(chunk.map(async(f)=>{
+        const id=await decodeQR(f);
+        return{file:f.name,id};
+      }));
+      decoded.forEach(({file,id})=>{
+        if(!id){errors++;results.push({id:null,file,status:'error',msg:'Could not read QR'});}
+        else if(existingIds.has(id)){skipped++;results.push({id,file,status:'skip',msg:'Already registered'});}
+        else if(results.find(r=>r.id===id)){skipped++;results.push({id,file,status:'skip',msg:'Duplicate in batch'});}
+        else{results.push({id,file,status:'ready',msg:''});}
+      });
+      setProgress({done:i+chunk.length,total:files.length,skipped,errors});
+      // Small yield to keep UI responsive
+      await new Promise(r=>setTimeout(r,10));
+    }
+    setScanned(results);
+    setStage('preview');
+    setProcessing(false);
+  };
+
+  const doUpload=async()=>{
+    const toUpload=scanned.filter(t=>t.status==='ready');
+    if(!toUpload.length){toast.show('No valid tokens to upload','error');return;}
+    setStage('uploading');
+    const BATCH_SIZE=400; // Firestore batch limit
+    let done=0,errors=0;
+    const val=Number(tokenValue)||TOKEN_VALUE;
+    const ts=nowTs();
+
+    for(let i=0;i<toUpload.length;i+=BATCH_SIZE){
+      const chunk=toUpload.slice(i,i+BATCH_SIZE);
+      const batch=firestore.batch();
+      chunk.forEach(t=>{
+        const ref=firestore.collection('tokens').doc(t.id);
+        batch.set(ref,{
+          id:t.id,value:val,
+          assignedTo:null,assignedAt:null,assignedBy:null,
+          assignedBySup:null,sessionId:null,lockedDate:null,
+          registeredAt:ts
+        },{merge:false});
+      });
+      try{
+        await batch.commit();
+        done+=chunk.length;
+      }catch(e){
+        errors+=chunk.length;
+        console.error('Batch error:',e);
+      }
+      setProgress(p=>({...p,done,errors}));
+      // Small delay between batches to avoid rate limiting
+      await new Promise(r=>setTimeout(r,300));
+    }
+    setStage('done');
+    setProgress(p=>({...p,done,errors}));
+    if(errors===0) toast.show(`✓ ${done} tokens registered successfully!`,'success');
+    else toast.show(`${done} registered, ${errors} failed`,'info');
+  };
+
+  const readyCount=scanned.filter(t=>t.status==='ready').length;
+  const skipCount=scanned.filter(t=>t.status==='skip').length;
+  const errCount=scanned.filter(t=>t.status==='error').length;
+
+  return(
+    <div className="overlay" onClick={stage==='uploading'?null:onClose}>
+      <div className="modal" style={{maxWidth:560}} onClick={e=>e.stopPropagation()}>
+        <div className="modal-title">⬆ Bulk Token QR Upload</div>
+
+        {/* STAGE: PICK FILES */}
+        {stage==='pick'&&(
+          <div>
+            <div style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:10,padding:16,marginBottom:16}}>
+              <div style={{fontSize:12,color:'var(--text2)',lineHeight:1.8}}>
+                <b>How it works:</b><br/>
+                1. Set the token value below<br/>
+                2. Click "Select QR Images" and select all your QR image files (Ctrl+A to select all)<br/>
+                3. Browser reads each QR automatically<br/>
+                4. Review the list and confirm upload
+              </div>
+            </div>
+            <div className="fg">
+              <label>Token Value (₹) for all tokens in this batch *</label>
+              <input type="number" value={tokenValue} onChange={e=>setTokenValue(e.target.value)} min="1" placeholder="e.g. 60"/>
+              <div style={{fontSize:11,color:'var(--muted)',marginTop:4}}>All selected tokens will be registered with this value</div>
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" multiple style={{display:'none'}} onChange={handleFiles}/>
+            {processing?(
+              <div style={{textAlign:'center',padding:24}}>
+                <div style={{fontFamily:'var(--mono)',fontSize:13,color:'var(--primary)',marginBottom:8}}>Reading QR codes...</div>
+                <div style={{background:'var(--surface2)',borderRadius:8,height:8,overflow:'hidden',marginBottom:8}}>
+                  <div style={{height:'100%',background:'var(--primary)',borderRadius:8,width:`${progress.total?Math.round(progress.done/progress.total*100):0}%`,transition:'width .3s'}}/>
+                </div>
+                <div style={{fontSize:11,color:'var(--muted)',fontFamily:'var(--mono)'}}>{progress.done} / {progress.total} files read</div>
+              </div>
+            ):(
+              <button className="btn btn-primary btn-full" style={{marginTop:8}} onClick={()=>fileRef.current.click()}>
+                📁 Select QR Image Files
+              </button>
+            )}
+            <div style={{marginTop:10,fontSize:11,color:'var(--muted)',textAlign:'center'}}>
+              Supports JPG, PNG, WebP • Select up to 15,000 files at once
+            </div>
+          </div>
+        )}
+
+        {/* STAGE: PREVIEW */}
+        {stage==='preview'&&(
+          <div>
+            {/* Summary */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:16}}>
+              <div style={{background:'var(--success-light)',border:'1px solid #a3d9c0',borderRadius:8,padding:12,textAlign:'center'}}>
+                <div style={{fontFamily:'var(--mono)',fontSize:22,fontWeight:700,color:'var(--success)'}}>{readyCount}</div>
+                <div style={{fontSize:10,color:'var(--success)',fontWeight:600,marginTop:3}}>READY TO UPLOAD</div>
+              </div>
+              <div style={{background:'var(--warn-light)',border:'1px solid #f0cc8a',borderRadius:8,padding:12,textAlign:'center'}}>
+                <div style={{fontFamily:'var(--mono)',fontSize:22,fontWeight:700,color:'var(--warn)'}}>{skipCount}</div>
+                <div style={{fontSize:10,color:'var(--warn)',fontWeight:600,marginTop:3}}>SKIPPED (DUPLICATE)</div>
+              </div>
+              <div style={{background:'var(--danger-light)',border:'1px solid #f0a3a3',borderRadius:8,padding:12,textAlign:'center'}}>
+                <div style={{fontFamily:'var(--mono)',fontSize:22,fontWeight:700,color:'var(--danger)'}}>{errCount}</div>
+                <div style={{fontSize:10,color:'var(--danger)',fontWeight:600,marginTop:3}}>UNREADABLE</div>
+              </div>
+            </div>
+
+            <div style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,padding:'8px 14px',marginBottom:12,fontSize:12,color:'var(--text2)'}}>
+              Value: <b style={{color:'var(--primary)',fontFamily:'var(--mono)'}}>₹{tokenValue}</b> per token &nbsp;·&nbsp; Total: <b style={{color:'var(--success)',fontFamily:'var(--mono)'}}>₹{(readyCount*Number(tokenValue)).toLocaleString('en-IN')}</b>
+            </div>
+
+            {/* Preview list */}
+            <div style={{maxHeight:240,overflowY:'auto',border:'1px solid var(--border)',borderRadius:8,marginBottom:12}}>
+              {scanned.filter(t=>t.status==='ready').slice(0,200).map((t,i)=>(
+                <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 12px',borderBottom:'1px solid var(--border)',fontSize:12}}>
+                  <span style={{fontFamily:'var(--mono)',color:'var(--success)',fontWeight:600}}>{t.id}</span>
+                  <span style={{fontSize:10,color:'var(--muted)'}}>{t.file}</span>
+                </div>
+              ))}
+              {readyCount>200&&<div style={{padding:'10px 12px',fontSize:11,color:'var(--muted)',textAlign:'center'}}>...and {readyCount-200} more tokens</div>}
+            </div>
+
+            {skipCount>0&&(
+              <div style={{padding:'8px 12px',background:'var(--warn-light)',border:'1px solid #f0cc8a',borderRadius:8,fontSize:11,color:'var(--warn)',marginBottom:10}}>
+                ⚠️ {skipCount} token(s) skipped — already registered or duplicates in batch
+              </div>
+            )}
+            {errCount>0&&(
+              <div style={{padding:'8px 12px',background:'var(--danger-light)',border:'1px solid #f0a3a3',borderRadius:8,fontSize:11,color:'var(--danger)',marginBottom:10}}>
+                ❌ {errCount} file(s) could not be read — QR may be blurry or unsupported format
+              </div>
+            )}
+
+            <div style={{padding:'8px 12px',background:'var(--primary-light)',border:'1px solid var(--border)',borderRadius:8,fontSize:11,color:'var(--text2)',marginBottom:4}}>
+              ℹ️ Upload will run in batches of 400. For 15,000 tokens this takes ~2 minutes. Keep this window open.
+            </div>
+          </div>
+        )}
+
+        {/* STAGE: UPLOADING */}
+        {stage==='uploading'&&(
+          <div style={{textAlign:'center',padding:'20px 0'}}>
+            <div style={{fontSize:32,marginBottom:12}}>⬆️</div>
+            <div style={{fontFamily:'var(--mono)',fontSize:14,color:'var(--primary)',fontWeight:700,marginBottom:16}}>Uploading to Firestore...</div>
+            <div style={{background:'var(--surface2)',borderRadius:8,height:10,overflow:'hidden',marginBottom:10}}>
+              <div style={{height:'100%',background:'var(--success)',borderRadius:8,width:`${readyCount?Math.round(progress.done/readyCount*100):0}%`,transition:'width .5s'}}/>
+            </div>
+            <div style={{fontFamily:'var(--mono)',fontSize:13,color:'var(--success)',marginBottom:4}}>{progress.done} / {readyCount} registered</div>
+            <div style={{fontSize:11,color:'var(--muted)'}}>Do not close this window</div>
+          </div>
+        )}
+
+        {/* STAGE: DONE */}
+        {stage==='done'&&(
+          <div style={{textAlign:'center',padding:'16px 0'}}>
+            <div style={{fontSize:48,marginBottom:12}}>✅</div>
+            <div style={{fontFamily:'var(--mono)',fontSize:16,fontWeight:700,color:'var(--success)',marginBottom:8}}>Upload Complete!</div>
+            <div style={{fontSize:13,color:'var(--text2)',marginBottom:16}}>
+              <b style={{color:'var(--success)'}}>{progress.done}</b> tokens registered successfully
+              {progress.errors>0&&<span style={{color:'var(--danger)'}}> · {progress.errors} failed</span>}
+            </div>
+          </div>
+        )}
+
+        <div className="modal-footer">
+          {stage==='pick'&&<button className="btn btn-ghost" onClick={onClose}>Cancel</button>}
+          {stage==='preview'&&(
+            <>
+              <button className="btn btn-ghost" onClick={()=>{setStage('pick');setScanned([]);}}>↩ Re-select Files</button>
+              <button className="btn btn-primary" onClick={doUpload} disabled={readyCount===0}>
+                ⬆ Register {readyCount.toLocaleString()} Tokens
+              </button>
+            </>
+          )}
+          {stage==='uploading'&&<div style={{fontSize:11,color:'var(--muted)',fontFamily:'var(--mono)'}}>Please wait...</div>}
+          {stage==='done'&&<button className="btn btn-primary btn-full" onClick={onDone}>✓ Done</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AdminDashboard({user,toast}){
   const[tab,setTab]=useState('overview');
   const[employees,setEmployees]=useState([]);
@@ -959,6 +1199,7 @@ function AdminDashboard({user,toast}){
   const[showAddSup,setShowAddSup]=useState(false);
   const[showScan,setShowScan]=useState(false);
   const[showRegToken,setShowRegToken]=useState(false);
+  const[showBulkUpload,setShowBulkUpload]=useState(false);
   const[editSup,setEditSup]=useState(null);
   const[editEmp,setEditEmp]=useState(null);
   const[editTok,setEditTok]=useState(null);
@@ -1122,7 +1363,13 @@ function AdminDashboard({user,toast}){
     )}
 
     {tab==='register-tokens'&&(<div>
-      <div className="sh mb14"><span className="st">Token Registry ({tokens.length} registered)</span><button className="btn btn-success btn-sm" onClick={()=>setShowRegToken(true)}>+ Register Token</button></div>
+      <div className="sh mb14">
+        <span className="st">Token Registry ({tokens.length} registered)</span>
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn btn-primary btn-sm" onClick={()=>setShowBulkUpload(true)}>⬆ Bulk Upload QR Images</button>
+          <button className="btn btn-success btn-sm" onClick={()=>setShowRegToken(true)}>+ Register Single Token</button>
+        </div>
+      </div>
       <div className="verify-badge vb-info mb14" style={{justifyContent:'flex-start',gap:8}}>🎟️ Register each physical token QR card here before supervisors can assign them. Default ₹{TOKEN_VALUE}/token.</div>
       <div className="card"><div className="tw"><table><thead><tr><th>Token ID</th><th>Value (₹)</th><th>Status</th><th>Assigned To</th><th>Assigned By</th><th>Date</th><th>Actions</th></tr></thead>
       <tbody>
@@ -1140,6 +1387,7 @@ function AdminDashboard({user,toast}){
           </div></td>
         </tr>))}
       </tbody></table></div></div>
+      {showBulkUpload&&<BulkUploadModal onClose={()=>setShowBulkUpload(false)} onDone={()=>{setShowBulkUpload(false);load();}} toast={toast} existingTokens={tokens}/>}
     </div>)}
 
     {tab==='token-search'&&(<TokenSearchPanel toast={toast}/>)}
