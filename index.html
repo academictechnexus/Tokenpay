@@ -1073,25 +1073,29 @@ function BulkUploadModal({onClose,onDone,toast,existingTokens}){
 
     for(let i=0;i<toUpload.length;i+=BATCH_SIZE){
       const chunk=toUpload.slice(i,i+BATCH_SIZE);
+      // Check which tokens already exist in Firestore before batching
+      const existChecks = await Promise.all(
+        chunk.map(t => firestore.collection('tokens').doc(t.id).get())
+      );
       const batch=firestore.batch();
-      chunk.forEach(t=>{
-        const ref=firestore.collection('tokens').doc(t.id);
-        // Only create if doesn't exist — never overwrite existing token data
-        const existDoc=await ref.get();
-        if(!existDoc.exists){
+      let batchHasItems = false;
+      chunk.forEach((t, idx) => {
+        if(!existChecks[idx].exists){
+          const ref=firestore.collection('tokens').doc(t.id);
           batch.set(ref,{
             id:t.id,value:val,
             assignedTo:null,assignedAt:null,assignedBy:null,
             assignedBySup:null,sessionId:null,lockedDate:null,
             registeredAt:ts
           });
+          batchHasItems = true;
         } else {
-          done++; // count as done but skip
+          done++; // already exists, skip
         }
       });
       try{
-        await batch.commit();
-        done+=chunk.length;
+        if(batchHasItems) await batch.commit();
+        done+=chunk.filter((_,idx)=>!existChecks[idx].exists).length;
       }catch(e){
         errors+=chunk.length;
         console.error('Batch error:',e);
