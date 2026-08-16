@@ -484,13 +484,18 @@ const db = {
     // fetch real token docs to get their values
     const tokDocs=await Promise.all(selectedTokenIds.map(id=>firestore.collection('tokens').doc(id).get()));
     const amount=tokDocs.reduce((sum,d)=>sum+(d.exists?(d.data().value||TOKEN_VALUE):TOKEN_VALUE),0);
+    // Fetch remaining tokens (not being paid) to calculate real remaining value
+    const allEmpTokSnap=await firestore.collection('tokens').where('assignedTo','==',empId).get();
+    const remainingValue=allEmpTokSnap.docs
+      .filter(d=>!selectedTokenIds.includes(d.id))
+      .reduce((s,d)=>s+(d.data().value||TOKEN_VALUE),0);
     const txnId='TXN'+Date.now();
     await firestore.collection('transactions').doc(txnId).set({
       id:txnId,employeeId:empId,employeeName:e.name,
       tokensPaid:selectedTokenIds.length,amount,date:today(),timestamp:nowTs(),
       type:'selected',tokenIds:selectedTokenIds,
       remainingTokens:pendingTokens-selectedTokenIds.length,
-      remainingAmount:(pendingTokens-selectedTokenIds.length)*(e.tokenValue||TOKEN_VALUE)
+      remainingAmount:remainingValue
     });
     const batch=firestore.batch();
     // free the paid tokens — available for reassignment
