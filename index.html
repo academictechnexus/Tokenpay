@@ -425,17 +425,20 @@ const db = {
     await tokRef.delete();
   },
 
+  // ── FIX: atomic transaction — prevents duplicate/double-counted assignment when the
+  // same token is scanned twice in quick succession (rapid re-scan, slow network, etc.) ──
   assignToken: async (tokenId,empId,supId,supName,sessionId) => {
-    const supSnap=await firestore.collection('supervisors').where('qrId','==',empId).get();
-    if(!supSnap.empty) throw new Error('❌ Supervisor ID detected — cannot assign token');
     const tokRef=firestore.collection('tokens').doc(tokenId);
-    const tokDoc=await tokRef.get();
-    if(!tokDoc.exists) throw new Error('Token not registered: '+tokenId+' — ask admin to register it first');
-    const t=tokDoc.data();
-    if(t.lockedDate===today()) throw new Error('❌ Token already used today');
-    await tokRef.update({assignedTo:empId,assignedAt:nowTs(),assignedBy:supName,assignedBySup:supId,sessionId,lockedDate:today()});
     const empRef=firestore.collection('employees').doc(empId);
-    await empRef.update({tokens:firebase.firestore.FieldValue.arrayUnion(tokenId),totalTokens:firebase.firestore.FieldValue.increment(1)});
+    await firestore.runTransaction(async(tx)=>{
+      const tokDoc=await tx.get(tokRef);
+      if(!tokDoc.exists) throw new Error('Token not registered: '+tokenId+' — ask admin to register it first');
+      const t=tokDoc.data();
+      if(t.assignedTo) throw new Error('❌ Token already assigned to '+t.assignedTo);
+      if(t.lockedDate===today()) throw new Error('❌ Token already used today');
+      tx.update(tokRef,{assignedTo:empId,assignedAt:nowTs(),assignedBy:supName,assignedBySup:supId,sessionId,lockedDate:today()});
+      tx.update(empRef,{tokens:firebase.firestore.FieldValue.arrayUnion(tokenId),totalTokens:firebase.firestore.FieldValue.increment(1)});
+    });
   },
 
   payEmployee: async (empId,partialTokens=null,resetByAdmin=false) => {
@@ -546,12 +549,36 @@ function useToast(){
 
 function CamScanner({onScan,onClose,label=''}){
   const vidRef=useRef();const canRef=useRef();const streamRef=useRef();const animRef=useRef();
-  const[status,setStatus]=useState('Starting camera...');const[camErr,setCamErr]=useState(null);const lastRef=useRef('');
+  const[status,setStatus]=useState('Starting camera...');const[camErr,setCamErr]=useState(null);const lastRef=useRef('');const busyRef=useRef(false);
   useEffect(()=>{
     navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(stream=>{streamRef.current=stream;if(vidRef.current){vidRef.current.srcObject=stream;vidRef.current.play();setStatus(label||'Point at QR code...');}animRef.current=requestAnimationFrame(tick);}).catch(()=>setCamErr('Camera access denied. Use manual input below.'));
     return()=>{streamRef.current?.getTracks().forEach(t=>t.stop());cancelAnimationFrame(animRef.current);};
   },[]);
-  const tick=()=>{const v=vidRef.current,c=canRef.current;if(v&&c&&v.readyState===v.HAVE_ENOUGH_DATA){c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);const img=c.getContext('2d').getImageData(0,0,c.width,c.height);const code=window.jsQR&&window.jsQR(img.data,img.width,img.height);if(code&&code.data&&code.data!==lastRef.current){lastRef.current=code.data;setStatus('✓ Scanned: '+code.data);onScan(code.data);setTimeout(()=>{lastRef.current='';setStatus(label||'Ready for next scan...');},500);}}animRef.current=requestAnimationFrame(tick);};
+  // ── FIX: single-flight lock instead of a fixed timer — a card held in frame while
+  // onScan is still processing (e.g. Firestore round-trip) no longer re-fires and
+  // creates duplicate entries. The lock only releases once the card is moved away
+  // (code disappears from frame) AND any in-flight onScan call has resolved. ──
+  const tick=()=>{
+    const v=vidRef.current,c=canRef.current;
+    if(v&&c&&v.readyState===v.HAVE_ENOUGH_DATA){
+      c.width=v.videoWidth;c.height=v.videoHeight;
+      c.getContext('2d').drawImage(v,0,0);
+      const img=c.getContext('2d').getImageData(0,0,c.width,c.height);
+      const code=window.jsQR&&window.jsQR(img.data,img.width,img.height);
+      if(code&&code.data){
+        if(code.data!==lastRef.current&&!busyRef.current){
+          lastRef.current=code.data;
+          busyRef.current=true;
+          setStatus('✓ Scanned: '+code.data);
+          Promise.resolve(onScan(code.data)).finally(()=>{busyRef.current=false;});
+        }
+      }else if(!busyRef.current){
+        lastRef.current='';
+        setStatus(label||'Point at QR code...');
+      }
+    }
+    animRef.current=requestAnimationFrame(tick);
+  };
   return(<div><div className="cam-wrap">{camErr?<div style={{padding:32,textAlign:'center',color:'var(--danger)',fontSize:13}}>{camErr}</div>:(<><video ref={vidRef} playsInline muted style={{width:'100%',maxHeight:240,objectFit:'cover',display:'block'}}/><canvas ref={canRef} style={{display:'none'}}/><div className="cam-frame"/><div className="cam-line"/><div className="cam-foot">{status}</div></>)}</div><button className="btn btn-danger btn-sm" onClick={onClose}>✕ Close camera</button></div>);
 }
 
