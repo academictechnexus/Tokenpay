@@ -7,9 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -889,7 +887,22 @@ function DateFilter({fromDate,toDate,setFromDate,setToDate}){
   </div>);
 }
 
-function exportToExcel(sheets,filename){
+// ── PERF: xlsx.full.min.js is ~1MB+ and only needed for report exports, so it's
+// loaded on demand here instead of blocking initial page load for every scan session ──
+let _xlsxLoad=null;
+function loadXLSX(){
+  if(window.XLSX) return Promise.resolve();
+  if(!_xlsxLoad) _xlsxLoad=new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload=()=>resolve();
+    s.onerror=()=>{_xlsxLoad=null;reject(new Error('Failed to load export library — check your connection'));};
+    document.head.appendChild(s);
+  });
+  return _xlsxLoad;
+}
+async function exportToExcel(sheets,filename){
+  await loadXLSX();
   const wb=XLSX.utils.book_new();
   sheets.forEach(({name,data})=>{const ws=XLSX.utils.aoa_to_sheet(data);const colWidths=data[0]?data[0].map((_,ci)=>({wch:Math.max(...data.map(r=>String(r[ci]||'').length),10)})):[];ws['!cols']=colWidths;XLSX.utils.book_append_sheet(wb,ws,name.substring(0,31));});
   XLSX.writeFile(wb,filename);
