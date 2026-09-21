@@ -439,18 +439,23 @@ const db = {
     });
   },
 
+  // ── FIX: pendingTokens/limits are now always derived from the real tokens
+  // collection, never from the employee doc's totalTokens counter. That counter
+  // can drift (e.g. from the historical duplicate-scan bug) and previously let
+  // tokensPaid/paidTokens be recorded using the drifted number instead of the
+  // real one, even though the ₹ amount was already computed correctly. ──
   payEmployee: async (empId,partialTokens=null,resetByAdmin=false) => {
     const empRef=firestore.collection('employees').doc(empId);
     const empDoc=await empRef.get();
     if(!empDoc.exists) throw new Error('Employee not found');
     const e=empDoc.data();
-    const pendingTokens=e.totalTokens||0;
-    let tokensToPay=partialTokens!==null?Number(partialTokens):pendingTokens;
-    if(tokensToPay<=0) throw new Error('No tokens available');
-    if(tokensToPay>pendingTokens) throw new Error('Invalid token count');
-    // Fetch actual assigned token docs to get real values
+    // Fetch actual assigned token docs — this is the source of truth, not e.totalTokens
     const allTokSnap=await firestore.collection('tokens').where('assignedTo','==',empId).get();
-    const allTokDocs=allTokSnap.docs.map(d=>d.data());
+    const allTokDocs=allTokSnap.docs.map(d=>({ref:d.ref,...d.data()}));
+    const pendingTokens=allTokDocs.length;
+    if(pendingTokens<=0) throw new Error('No tokens available');
+    let tokensToPay=partialTokens!==null?Math.min(Number(partialTokens),pendingTokens):pendingTokens;
+    if(tokensToPay<=0) throw new Error('No tokens available');
     const amount=allTokDocs.slice(0,tokensToPay).reduce((s,t)=>s+(t.value||TOKEN_VALUE),0);
     const remainingValue=allTokDocs.slice(tokensToPay).reduce((s,t)=>s+(t.value||TOKEN_VALUE),0);
     const txnId='TXN'+Date.now();
@@ -461,14 +466,23 @@ const db = {
       remainingTokens:pendingTokens-tokensToPay,
       remainingAmount:remainingValue
     });
-    if(partialTokens===null||tokensToPay===pendingTokens||resetByAdmin){
-      const tokSnap=await firestore.collection('tokens').where('assignedTo','==',empId).get();
+    if(tokensToPay===pendingTokens){
       const batch=firestore.batch();
-      tokSnap.docs.forEach(d=>batch.update(d.ref,{assignedTo:null,assignedAt:null,assignedBy:null,assignedBySup:null,sessionId:null,lockedDate:null}));
+      allTokDocs.forEach(t=>batch.update(t.ref,{assignedTo:null,assignedAt:null,assignedBy:null,assignedBySup:null,sessionId:null,lockedDate:null}));
       batch.update(empRef,{tokens:[],totalTokens:0,paidTokens:firebase.firestore.FieldValue.increment(tokensToPay),partialPaidTokens:0});
       await batch.commit();
     } else {
-      await empRef.update({totalTokens:firebase.firestore.FieldValue.increment(-tokensToPay),paidTokens:firebase.firestore.FieldValue.increment(tokensToPay),partialPaidTokens:firebase.firestore.FieldValue.increment(tokensToPay)});
+      // partial pay of the first N real tokens — actually free those specific tokens
+      const paidDocs=allTokDocs.slice(0,tokensToPay);
+      const batch=firestore.batch();
+      paidDocs.forEach(t=>batch.update(t.ref,{assignedTo:null,assignedAt:null,assignedBy:null,assignedBySup:null,sessionId:null,lockedDate:null}));
+      batch.update(empRef,{
+        tokens: firebase.firestore.FieldValue.arrayRemove(...paidDocs.map(t=>t.id)),
+        totalTokens: firebase.firestore.FieldValue.increment(-tokensToPay),
+        paidTokens: firebase.firestore.FieldValue.increment(tokensToPay),
+        partialPaidTokens: firebase.firestore.FieldValue.increment(tokensToPay)
+      });
+      await batch.commit();
     }
     return{amount,tokensPaid:tokensToPay};
   },
@@ -480,13 +494,14 @@ const db = {
     const empDoc=await empRef.get();
     if(!empDoc.exists) throw new Error('Employee not found');
     const e=empDoc.data();
-    const pendingTokens=e.totalTokens||0;
+    // Fetch remaining tokens (not being paid) to calculate real remaining value — also
+    // doubles as the real pending-count source instead of the drift-prone e.totalTokens
+    const allEmpTokSnap=await firestore.collection('tokens').where('assignedTo','==',empId).get();
+    const pendingTokens=allEmpTokSnap.size;
     if(selectedTokenIds.length>pendingTokens) throw new Error('Invalid token selection');
     // fetch real token docs to get their values
     const tokDocs=await Promise.all(selectedTokenIds.map(id=>firestore.collection('tokens').doc(id).get()));
     const amount=tokDocs.reduce((sum,d)=>sum+(d.exists?(d.data().value||TOKEN_VALUE):TOKEN_VALUE),0);
-    // Fetch remaining tokens (not being paid) to calculate real remaining value
-    const allEmpTokSnap=await firestore.collection('tokens').where('assignedTo','==',empId).get();
     const remainingValue=allEmpTokSnap.docs
       .filter(d=>!selectedTokenIds.includes(d.id))
       .reduce((s,d)=>s+(d.data().value||TOKEN_VALUE),0);
