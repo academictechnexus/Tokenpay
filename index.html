@@ -971,7 +971,8 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
   const[rTab,setRTab]=useState('daily');
   const[fromDate,setFromDate]=useState(today());const[toDate,setToDate]=useState(today());
   const[empFromDate,setEmpFromDate]=useState('');const[empToDate,setEmpToDate]=useState('');
-  const[selEmp,setSelEmp]=useState('');const[selSup,setSelSup]=useState('');
+  const[selEmp,setSelEmp]=useState('');const[selSups,setSelSups]=useState([]);
+  const toggleSup=(id)=>setSelSups(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
   const[txFromDate,setTxFromDate]=useState('');const[txToDate,setTxToDate]=useState('');
   const inRange=(date,from,to)=>{if(!date)return false;if(from&&date<from)return false;if(to&&date>to)return false;return true;};
   const dailyToks=tokens.filter(t=>t.lockedDate&&inRange(t.lockedDate,fromDate,toDate));
@@ -983,10 +984,10 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
   const empRangeActive=!!(empFromDate||empToDate);
   const empToks=tokens.filter(t=>{if(!t.assignedTo)return false;if(selEmp&&t.assignedTo!==selEmp)return false;if(empRangeActive&&!inRange(t.lockedDate,empFromDate||'2020-01-01',empToDate||'2099-12-31'))return false;return true;});
   const empHistory=employees.filter(e=>!selEmp||e.id===selEmp).map(e=>{const toks=empToks.filter(t=>t.assignedTo===e.id);const totalValue=toks.reduce((s,t)=>s+(t.value||TOKEN_VALUE),0);const txns=transactions.filter(t=>t.employeeId===e.id);const totalPaid=txns.reduce((s,t)=>s+t.amount,0);return{...e,assignedToks:toks,totalValue,txns,totalPaid};}).filter(e=>e.assignedToks.length>0||selEmp);
-  const supToks=tokens.filter(t=>t.assignedBySup&&inRange(t.lockedDate,fromDate,toDate)&&(!selSup||t.assignedBySup===selSup));
+  const supToks=tokens.filter(t=>t.assignedBySup&&inRange(t.lockedDate,fromDate,toDate)&&(selSups.length===0||selSups.includes(t.assignedBySup)));
   const supByDate={};supToks.forEach(t=>{const key=`${t.assignedBySup}__${t.lockedDate}`;if(!supByDate[key])supByDate[key]={supId:t.assignedBySup,supName:t.assignedBy,date:t.lockedDate,count:0,value:0};supByDate[key].count++;supByDate[key].value+=(t.value||TOKEN_VALUE);});
   const supRows=Object.values(supByDate).sort((a,b)=>b.date.localeCompare(a.date)||b.count-a.count);
-  const supTotals=supervisors.map(s=>{const rows=supRows.filter(r=>r.supId===s.id);return{...s,periodCount:rows.reduce((x,r)=>x+r.count,0),periodValue:rows.reduce((x,r)=>x+r.value,0)};}).filter(s=>s.periodCount>0||selSup===s.id);
+  const supTotals=supervisors.map(s=>{const rows=supRows.filter(r=>r.supId===s.id);return{...s,periodCount:rows.reduce((x,r)=>x+r.count,0),periodValue:rows.reduce((x,r)=>x+r.value,0)};}).filter(s=>s.periodCount>0||selSups.includes(s.id));
   const filteredTxns=transactions.filter(t=>inRange(t.date,txFromDate||'2020-01-01',txToDate||'2099-12-31'));
   const txTotal=filteredTxns.reduce((s,t)=>s+t.amount,0);const txTokens=filteredTxns.reduce((s,t)=>s+t.tokensPaid,0);
   const exportDaily=()=>{const rl=fromDate===toDate?fromDate:`${fromDate} to ${toDate}`;const rows=[[`Daily Summary Report — ${rl}`],[`Generated: ${new Date().toLocaleString('en-IN')}`],[],['Date','Tokens Assigned','Total Value (INR)','Token Breakdown','Unique Employees','Unique Supervisors'],...dailySummaryRows.map(row=>{const ei=[...new Set(row.tokens.map(t=>t.assignedTo))];const si=[...new Set(row.tokens.map(t=>t.assignedBySup).filter(Boolean))];return[row.date,row.total,row.value,getTokenBreakdownStr(row.tokens),ei.length,si.length];}),[], ['TOTAL','',dailyToks.reduce((s,t)=>s+(t.value||TOKEN_VALUE),0),'','','']];exportToExcel([{name:'Daily Summary',data:rows}],`daily-summary-${fromDate}-to-${toDate}.xlsx`);};
@@ -1070,7 +1071,23 @@ function ReportsPanel({tokens,employees,supervisors,transactions}){
 
     {rTab==='supervisor'&&(<div>
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:10}}><div style={{flex:1,minWidth:300}}><DateFilter fromDate={fromDate} toDate={toDate} setFromDate={setFromDate} setToDate={setToDate}/></div><div style={{paddingTop:4}}><XlBtn onClick={exportSupervisor} disabled={supRows.length===0}/></div></div>
-      <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:16,padding:'14px 16px',background:'#fff',borderRadius:10,flexWrap:'wrap',border:'1px solid var(--border)',boxShadow:'0 1px 3px rgba(139,94,60,.06)'}}><div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>FILTER SUPERVISOR</div><select value={selSup} onChange={e=>setSelSup(e.target.value)} style={{background:'#fff',border:'1.5px solid var(--border2)',borderRadius:8,padding:'7px 12px',color:'var(--text)',fontSize:12,minWidth:200,outline:'none'}}><option value=''>All Supervisors</option>{supervisors.map(s=><option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}</select>{selSup&&<button className="btn btn-ghost btn-sm" onClick={()=>setSelSup('')}>✕ Clear</button>}</div>
+      <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:16,padding:'14px 16px',background:'#fff',borderRadius:10,flexWrap:'wrap',border:'1px solid var(--border)',boxShadow:'0 1px 3px rgba(139,94,60,.06)'}}>
+        <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>FILTER SUPERVISOR</div>
+        <button className="btn btn-ghost btn-sm" onClick={()=>setSelSups([])} style={{
+          borderColor:selSups.length===0?'var(--primary)':'var(--border2)',
+          color:selSups.length===0?'var(--primary)':'var(--text2)',
+          background:selSups.length===0?'var(--primary-light)':'var(--surface)'
+        }}>All Supervisors</button>
+        {supervisors.map(s=>{
+          const on=selSups.includes(s.id);
+          return(<button key={s.id} className="btn btn-ghost btn-sm" onClick={()=>toggleSup(s.id)} style={{
+            borderColor:on?'var(--purple)':'var(--border2)',
+            color:on?'var(--purple)':'var(--text2)',
+            background:on?'var(--purple-light)':'var(--surface)'
+          }}>{on?'✓ ':''}{s.name}</button>);
+        })}
+        {selSups.length>0&&<button className="btn btn-ghost btn-sm" onClick={()=>setSelSups([])}>✕ Clear</button>}
+      </div>
       <div className="card mb14"><div className="ct">Supervisor performance</div><div className="tw"><table><thead><tr><th>Supervisor</th><th>ID</th><th>Tokens Assigned</th><th>Total Value</th></tr></thead><tbody>{supTotals.length===0&&<tr><td colSpan={4} style={{textAlign:'center',color:'var(--muted)',padding:24}}>No activity in range</td></tr>}{supTotals.map(s=>(<tr key={s.id}><td><div style={{display:'flex',alignItems:'center',gap:8}}><div className="avt avt-p" style={{width:26,height:26,fontSize:10}}>{s.name.charAt(0)}</div>{s.name}</div></td><td className="mc" style={{color:'var(--purple)'}}>{s.id}</td><td><span style={{fontFamily:'var(--mono)',color:'var(--success)',fontSize:15}}>{s.periodCount}</span></td><td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:12}}>₹{s.periodValue.toLocaleString('en-IN')}</td></tr>))}</tbody></table></div></div>
       <div className="card mb14"><div className="ct">Day-by-day supervisor log</div><div className="tw"><table><thead><tr><th>Date</th><th>Supervisor</th><th>ID</th><th>Tokens</th><th>Value</th></tr></thead><tbody>{supRows.length===0&&<tr><td colSpan={5} style={{textAlign:'center',color:'var(--muted)',padding:24}}>No activity in range</td></tr>}{supRows.map((row,i)=>(<tr key={i}><td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:11}}>{row.date}</td><td>{row.supName||row.supId}</td><td className="mc" style={{color:'var(--purple)'}}>{row.supId}</td><td><span style={{fontFamily:'var(--mono)',color:'var(--success)'}}>{row.count}</span></td><td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:11}}>₹{row.value.toLocaleString('en-IN')}</td></tr>))}</tbody></table></div></div>
       <div className="card"><div className="sh"><div className="ct" style={{margin:0}}>Assignment detail — which token went to which employee</div><span className="badge b-yellow">{supTokDetailRows.length} tokens</span></div><div className="tw"><table><thead><tr><th>Date</th><th>Time</th><th>Supervisor</th><th>Employee</th><th>Token</th><th>Value</th></tr></thead><tbody>{supTokDetailRows.length===0&&<tr><td colSpan={6} style={{textAlign:'center',color:'var(--muted)',padding:24}}>No activity in range</td></tr>}{supTokDetailRows.map(t=>(<tr key={t.id}><td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:11}}>{t.lockedDate||'—'}</td><td style={{fontSize:10,color:'var(--muted)'}}>{fmtTime(t.assignedAt)}</td><td style={{fontSize:11}}>{t.assignedBy||'—'} <span style={{color:'var(--purple)',fontFamily:'var(--mono)',fontSize:9}}>({t.assignedBySup||'—'})</span></td><td style={{fontSize:11}}>{getEmpName(t.assignedTo)} <span style={{color:'var(--primary)',fontFamily:'var(--mono)',fontSize:9}}>({t.assignedTo||'—'})</span></td><td className="mc" style={{color:'var(--success)'}}>{t.id}</td><td style={{fontFamily:'var(--mono)',color:'var(--primary)',fontSize:11}}>₹{t.value||TOKEN_VALUE}</td></tr>))}</tbody></table></div></div>
