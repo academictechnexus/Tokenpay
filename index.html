@@ -745,16 +745,22 @@ function PayoutModal({emp,onClose,onDone,toast}){
   const toggleAll=()=>{const sel={};if(!allSelected){empTokens.forEach(t=>sel[t.id]=true);}setSelected(sel);};
   const toggleOne=(id)=>setSelected(prev=>({...prev,[id]:!prev[id]}));
 
-  // ── Date filter: select/deselect all tokens from a given day (e.g. keep today's
-  // tokens out of a payment and pay the older, already-verified ones) ──
+  // ── Date filter: select/deselect all tokens from a given day, or any custom
+  // date range, so a partial payment can exclude e.g. today's just-assigned
+  // tokens and pay out an arbitrary earlier span instead ──
   const yesterdayStr=(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().split('T')[0];})();
   const dateLabel=(d)=>d===today()?'Today':d===yesterdayStr?'Yesterday':d;
   const uniqueDates=[...new Set(empTokens.map(t=>t.lockedDate).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
-  const toggleDate=(d)=>{
-    const idsForDate=empTokens.filter(t=>t.lockedDate===d).map(t=>t.id);
-    const allSelForDate=idsForDate.every(id=>selected[id]);
-    setSelected(prev=>{const next={...prev};idsForDate.forEach(id=>{next[id]=!allSelForDate;});return next;});
+  const toggleIds=(ids)=>{
+    if(ids.length===0)return;
+    const allSel=ids.every(id=>selected[id]);
+    setSelected(prev=>{const next={...prev};ids.forEach(id=>{next[id]=!allSel;});return next;});
   };
+  const toggleDate=(d)=>toggleIds(empTokens.filter(t=>t.lockedDate===d).map(t=>t.id));
+  const[rangeFrom,setRangeFrom]=useState('');
+  const[rangeTo,setRangeTo]=useState('');
+  const rangeIds=(rangeFrom||rangeTo)?empTokens.filter(t=>t.lockedDate&&(!rangeFrom||t.lockedDate>=rangeFrom)&&(!rangeTo||t.lockedDate<=rangeTo)).map(t=>t.id):[];
+  const rangeAllSel=rangeIds.length>0&&rangeIds.every(id=>selected[id]);
 
   const doPay=async()=>{
     if(selectedCount===0){toast.show('Select at least one token to pay','error');return;}
@@ -826,6 +832,16 @@ function PayoutModal({emp,onClose,onDone,toast}){
                     background:allSelForDate?'var(--success-light)':someSelForDate?'var(--warn-light)':'var(--surface)'
                   }}>{dateLabel(d)} ({idsForDate.length})</button>);
                 })}
+              </div>
+            )}
+            {uniqueDates.length>1&&(
+              <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:10,padding:'8px 10px',background:'var(--surface2)',borderRadius:8,border:'1px solid var(--border)'}}>
+                <span style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',letterSpacing:1}}>DATE RANGE</span>
+                <input type="date" value={rangeFrom} onChange={e=>setRangeFrom(e.target.value)} style={{background:'#fff',border:'1.5px solid var(--border2)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:10,outline:'none'}}/>
+                <span style={{color:'var(--muted)',fontSize:11}}>to</span>
+                <input type="date" value={rangeTo} onChange={e=>setRangeTo(e.target.value)} style={{background:'#fff',border:'1.5px solid var(--border2)',borderRadius:6,padding:'5px 8px',color:'var(--text)',fontFamily:'var(--mono)',fontSize:10,outline:'none'}}/>
+                <button className="btn btn-ghost btn-sm" disabled={rangeIds.length===0} onClick={()=>toggleIds(rangeIds)}>{rangeAllSel?'Deselect':'Select'} {rangeIds.length} token{rangeIds.length===1?'':'s'}</button>
+                {(rangeFrom||rangeTo)&&<button className="btn btn-ghost btn-sm" onClick={()=>{setRangeFrom('');setRangeTo('');}}>✕ Clear</button>}
               </div>
             )}
             <div className="tok-check-list">
